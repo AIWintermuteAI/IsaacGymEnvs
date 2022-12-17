@@ -23,8 +23,8 @@ env:
 
   randomCommandVelocityRanges:
     linear_x: [0., 0.] # min max [m/s]
-    linear_y: [2., 2.]   # min max [m/s]
-    yaw: [-1., 1.]          # min max [rad/s]
+    linear_y: [-2., 2.]   # min max [m/s]
+    yaw: [-1.57, 1.57]          # min max [rad/s]
 
   control:
     # PD Drive parameters:
@@ -53,7 +53,7 @@ env:
     # rewards
     linearVelocityXYRewardScale: 1.0
     angularVelocityZRewardScale: 0.5
-    torqueRewardScale: 0.05
+    torqueRewardScale: -0.00002
     headingScale: 0.25
     upScale: 0.1
 

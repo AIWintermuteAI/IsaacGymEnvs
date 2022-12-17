@@ -2,15 +2,15 @@
 <!-- created with Phobos 1.0.1 "Capricious Choutengan" -->
   <robot name="bittle">
 
-    <!-- Material for the visual primitives --> 
- 
-    <material name="black_material">    
-        <color rgba="0.1 0.1 0.1 1.0"/>  
-    </material> 
-    <material name="yellow_material">    
-        <color rgba="0.8 0.7 0.0 1.0"/>  
+    <!-- Material for the visual primitives -->
+
+    <material name="black_material">
+        <color rgba="0.1 0.1 0.1 1.0"/>
     </material>
- 
+    <material name="yellow_material">
+        <color rgba="0.8 0.7 0.0 1.0"/>
+    </material>
+
     <link name="base-frame-link">
       <inertial>
         <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -22,7 +22,7 @@
         <geometry>
           <mesh filename="../meshes/base_frame.obj" scale="1.0 1.0 1.0"/>
         </geometry>
-        <material name="yellow_material"/>  
+        <material name="yellow_material"/>
       </visual>
       <collision name="base_frame_c">
         <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -43,7 +43,7 @@
         <geometry>
           <mesh filename="../meshes/battery.obj" scale="1.0 1.0 1.0"/>
         </geometry>
-        <material name="black_material"/>  
+        <material name="black_material"/>
       </visual>
       <collision name="battery_c">
         <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -64,7 +64,7 @@
         <geometry>
           <mesh filename="../meshes/cover.obj" scale="1.0 1.0 1.0"/>
         </geometry>
-        <material name="black_material"/>  
+        <material name="black_material"/>
       </visual>
       <collision name="cover_c">
         <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -99,7 +99,7 @@
         <geometry>
           <mesh filename="../meshes/left_knee.001.obj" scale="1.0 1.0 1.0"/>
         </geometry>
-        <material name="black_material"/>  
+        <material name="black_material"/>
       </visual>
       <collision name="left_back_knee_c">
         <origin xyz="-0.08998 0 -0.14638" rpy="-1.5708 1.5708 0"/>
@@ -141,7 +141,7 @@
         <geometry>
           <mesh filename="../meshes/left_knee.obj" scale="1.0 1.0 1.0"/>
         </geometry>
-        <material name="black_material"/>  
+        <material name="black_material"/>
       </visual>
       <collision name="left_front_knee_c">
         <origin xyz="-0.09232 0 -0.14614" rpy="-1.5708 1.5708 0"/>
@@ -162,7 +162,7 @@
         <geometry>
           <mesh filename="../meshes/shoulder.obj" scale="1.0 1.0 1.0"/>
         </geometry>
-        <material name="yellow_material"/>  
+        <material name="yellow_material"/>
       </visual>
       <collision name="left_front_shoulder_c">
         <origin xyz="0 -0.24575 0.04372" rpy="-1.5708 1.5708 0"/>
@@ -175,7 +175,7 @@
     <link name="mainboard_link">
       <inertial>
         <origin xyz="0 0 0" rpy="0 0 0"/>
-        <mass value="0.001"/>
+        <mass value="0.025"/>
         <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
       </inertial>
       <visual name="mainboard">
@@ -197,7 +197,7 @@
         <geometry>
           <mesh filename="../meshes/right_knee.001.obj" scale="1.0 1.0 1.0"/>
         </geometry>
-        <material name="black_material"/>  
+        <material name="black_material"/>
       </visual>
       <collision name="right_back_knee_c">
         <origin xyz="0.08426 -0.00238 -0.1382" rpy="-1.5708 -1.5708 0"/>
@@ -239,7 +239,7 @@
         <geometry>
           <mesh filename="../meshes/right_knee.obj" scale="1.0 1.0 1.0"/>
         </geometry>
-        <material name="black_material"/>  
+        <material name="black_material"/>
       </visual>
       <collision name="right_front_knee_c">
         <origin xyz="0.09497 -0.00238 -0.1382" rpy="-1.5708 -1.5708 0"/>
@@ -293,7 +293,7 @@
       <parent link="left-back-shoulder-link"/>
       <child link="left-back-knee-link"/>
       <axis xyz="0 0 1.0"/>
-      <limit lower="-1.22173" upper="1.48353" effort="15.0" velocity="1.5708"/>
+      <limit lower="-1.22173" upper="1.48353" effort="15" velocity="1.5708"/>
     </joint>
 
     <joint name="left-back-shoulder-joint" type="revolute">
@@ -301,7 +301,7 @@
       <parent link="base-frame-link"/>
       <child link="left-back-shoulder-link"/>
       <axis xyz="0 0 1.0"/>
-      <limit lower="-1.5708" upper="1.22173" effort="15.0" velocity="1.5708"/>
+      <limit lower="-1.5708" upper="1.22173" effort="15" velocity="1.5708"/>
     </joint>
 
     <joint name="left-front-knee-joint" type="revolute">
@@ -309,7 +309,7 @@
       <parent link="left-front-shoulder-link"/>
       <child link="left-front-knee-link"/>
       <axis xyz="0 0 1.0"/>
-      <limit lower="-1.22173" upper="1.48353" effort="15.0" velocity="1.5708"/>
+      <limit lower="-1.22173" upper="1.48353" effort="15" velocity="1.5708"/>
     </joint>
 
     <joint name="left-front-shoulder-joint" type="revolute">
@@ -317,7 +317,7 @@
       <parent link="base-frame-link"/>
       <child link="left-front-shoulder-link"/>
       <axis xyz="0 0 1.0"/>
-      <limit lower="-1.5708" upper="1.22173" effort="15.0" velocity="1.5708"/>
+      <limit lower="-1.5708" upper="1.22173" effort="15" velocity="1.5708"/>
     </joint>
 
     <joint name="mainboard_joint" type="fixed">
@@ -331,7 +331,7 @@
       <parent link="right-back-shoulder-link"/>
       <child link="right-back-knee-link"/>
       <axis xyz="0 0 1.0"/>
-      <limit lower="-1.22173" upper="1.48353" effort="15.0" velocity="1.5708"/>
+      <limit lower="-1.22173" upper="1.48353" effort="15" velocity="1.5708"/>
     </joint>
 
     <joint name="right-back-shoulder-joint" type="revolute">
@@ -339,7 +339,7 @@
       <parent link="base-frame-link"/>
       <child link="right-back-shoulder-link"/>
       <axis xyz="0 0 1.0"/>
-      <limit lower="-1.5708" upper="1.22173" effort="15.0" velocity="1.5708"/>
+      <limit lower="-1.5708" upper="1.22173" effort="15" velocity="1.5708"/>
     </joint>
 
     <joint name="right-front-knee-joint" type="revolute">
@@ -347,7 +347,7 @@
       <parent link="right-front-shoulder-link"/>
       <child link="right-front-knee-link"/>
       <axis xyz="0 0 1.0"/>
-      <limit lower="-1.22173" upper="1.48353" effort="15.0" velocity="1.5708"/>
+      <limit lower="-1.22173" upper="1.48353" effort="15" velocity="1.5708"/>
     </joint>
 
     <joint name="right-front-shoulder-joint" type="revolute">
@@ -355,7 +355,7 @@
       <parent link="base-frame-link"/>
       <child link="right-front-shoulder-link"/>
       <axis xyz="0 0 1.0"/>
-      <limit lower="-1.5708" upper="1.22173" effort="15.0" velocity="1.5708"/>
+      <limit lower="-1.5708" upper="1.22173" effort="15" velocity="1.5708"/>
     </joint>
 
   </robot>

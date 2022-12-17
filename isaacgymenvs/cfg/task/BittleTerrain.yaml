@@ -5,7 +5,7 @@ physics_engine: ${..physics_engine}
 
 env:
   numEnvs: ${resolve_default:1024,${...num_envs}}
-  numObservations: 36
+  numObservations: 176
   numActions: 8
   envSpacing: 3.  # [m]
   enableDebugVis: False
@@ -14,7 +14,7 @@ env:
   clipActions: 1.0
 
   terrain:
-    terrainType: trimesh # none, plane, or trimesh
+    terrainType: plane # none, plane, or trimesh
     staticFriction: 1.0  # [-]
     dynamicFriction: 1.0  # [-]
     restitution: 0.        # [-]
@@ -38,15 +38,14 @@ env:
 
   randomCommandVelocityRanges:
     linear_x: [0., 0.] # min max [m/s]
-    linear_y: [2., 2.]   # min max [m/s]
-    yaw: [-1., 1.]          # min max [rad/s]
+    linear_y: [-1., 1.]   # min max [m/s]
+    yaw: [-1.57, 1.57]    # min max [rad/s]
 
   control:
     # PD Drive parameters:
     stiffness: 85.0  # [N*m/rad]
     damping: 4.0     # [N*m*s/rad]
-    actionScale: 3.14
-    controlFrequencyInv: 1 # 60 Hz
+    actionScale: 0.5
     # decimation: Number of control action updates @ sim DT per policy DT
     decimation: 4
 
@@ -63,25 +62,53 @@ env:
 
   urdfAsset:
     collapseFixedJoints: True
-    fixBaseLink: False
+    fixBaseLink: false
     defaultDofDriveMode: 1 # see GymDofDriveModeFlags (0 is none, 1 is pos tgt, 2 is vel tgt, 4 effort)
 
   learn:
+    allowKneeContacts: false
     # rewards
+    terminalReward: 0.0
     linearVelocityXYRewardScale: 1.0
+    linearVelocityZRewardScale: -4.0
+    angularVelocityXYRewardScale: -0.05
     angularVelocityZRewardScale: 0.5
-    torqueRewardScale: 0.05
-    headingScale: 0.25
-    upScale: 0.1
+    orientationRewardScale: -0. #-1.
+    torqueRewardScale: -0.00002 # -0.000025
+    jointAccRewardScale: -0.0005 # -0.0025
+    baseHeightRewardScale: -0.0 #5
+    feetAirTimeRewardScale:  1.0
+    kneeCollisionRewardScale: -0.25
+    feetStumbleRewardScale: -0. #-2.0
+    actionRateRewardScale: -0.01
+    # cosmetics
+    hipRewardScale: -0. #25
 
     # normalization
     linearVelocityScale: 2.0
     angularVelocityScale: 0.25
     dofPositionScale: 1.0
     dofVelocityScale: 0.05
+    heightMeasurementScale: 5.0
+
+    # noise
+    addNoise: false
+    noiseLevel: 1.0 # scales other values
+    dofPositionNoise: 0.01
+    dofVelocityNoise: 1.5
+    linearVelocityNoise: 0.1
+    angularVelocityNoise: 0.2
+    gravityNoise: 0.05
+    heightMeasurementNoise: 0.06
+
+    #randomization
+    randomizeFriction: false
+    frictionRange: [0.5, 1.25]
+    pushRobots: true
+    pushInterval_s: 15
 
     # episode length in seconds
-    episodeLength_s: 50
+    episodeLength_s: 20
 
   # viewer cam:
   viewer:
@@ -93,8 +120,8 @@ env:
   enableCameraSensors: False
 
 sim:
-  dt: 0.02
-  substeps: 2
+  dt: 0.005
+  substeps: 1
   up_axis: "z"
   use_gpu_pipeline: ${eq:${...pipeline},"gpu"}
   gravity: [0.0, 0.0, -9.81]

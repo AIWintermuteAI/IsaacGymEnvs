@@ -14,8 +14,8 @@ params:
     space:
       continuous:
     mlp:
-      units: [512, 256]
-      activation: relu
+      units: [256, 128, 64]
+      activation: elu
 
       initializer:
         name: default
@@ -28,7 +28,7 @@ params:
     name: ${resolve_default:Bittle,${....experiment}}
     full_experiment_name: ${.name}
     env_name: rlgpu
-    normalize_input: False
+    normalize_input: True
     reward_shaper:
       scale_value: 1.0
     num_steps_per_episode: 8
@@ -38,7 +38,7 @@ params:
     actor_lr: 0.0005
     critic_lr: 0.0005
     critic_tau: 0.005
-    batch_size: 4096
+    batch_size: 8192
     learnable_temperature: true
     num_seed_steps: 5
     num_warmup_steps: 10
@@ -46,6 +46,6 @@ params:
     num_actors: ${....task.env.numEnvs}
 
     max_epochs: ${resolve_default:1000,${....max_iterations}}
-    save_best_after: 500
+    save_best_after: 200
     save_frequency: 200
     print_stats: True
