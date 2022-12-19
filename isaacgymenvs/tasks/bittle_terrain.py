@@ -234,12 +234,12 @@ class BittleTerrain(VecTask):
         asset_options.thickness = 0.01
         asset_options.disable_gravity = False
 
-        anymal_asset = self.gym.load_asset(self.sim, asset_root, asset_file, asset_options)
-        self.num_dof = self.gym.get_asset_dof_count(anymal_asset)
-        self.num_bodies = self.gym.get_asset_rigid_body_count(anymal_asset)
+        bittle_asset = self.gym.load_asset(self.sim, asset_root, asset_file, asset_options)
+        self.num_dof = self.gym.get_asset_dof_count(bittle_asset)
+        self.num_bodies = self.gym.get_asset_rigid_body_count(bittle_asset)
 
         # prepare friction randomization
-        rigid_shape_prop = self.gym.get_asset_rigid_shape_properties(anymal_asset)
+        rigid_shape_prop = self.gym.get_asset_rigid_shape_properties(bittle_asset)
         friction_range = self.cfg["env"]["learn"]["frictionRange"]
         num_buckets = 100
         friction_buckets = torch_rand_float(friction_range[0], friction_range[1], (num_buckets,1), device=self.device)
@@ -251,8 +251,8 @@ class BittleTerrain(VecTask):
 
         self.start_rotation = torch.tensor([start_pose.r.x, start_pose.r.y, start_pose.r.z, start_pose.r.w], device=self.device)
 
-        body_names = self.gym.get_asset_rigid_body_names(anymal_asset)
-        self.dof_names = self.gym.get_asset_dof_names(anymal_asset)
+        body_names = self.gym.get_asset_rigid_body_names(bittle_asset)
+        self.dof_names = self.gym.get_asset_dof_names(bittle_asset)
         extremity_name = "SHANK" if asset_options.collapse_fixed_joints else "knee"
         feet_names = [s for s in body_names if extremity_name in s]
         self.feet_indices = torch.zeros(len(feet_names), dtype=torch.long, device=self.device, requires_grad=False)
@@ -260,7 +260,7 @@ class BittleTerrain(VecTask):
         self.knee_indices = torch.zeros(len(knee_names), dtype=torch.long, device=self.device, requires_grad=False)
         self.base_index = 0
 
-        dof_props = self.gym.get_asset_dof_properties(anymal_asset)
+        dof_props = self.gym.get_asset_dof_properties(bittle_asset)
         for i in range(self.num_dof):
             dof_props['driveMode'][i] = self.cfg["env"]["urdfAsset"]["defaultDofDriveMode"] #gymapi.DOF_MODE_POS
             dof_props['stiffness'][i] = self.cfg["env"]["control"]["stiffness"] #self.Kp
@@ -277,7 +277,7 @@ class BittleTerrain(VecTask):
 
         env_lower = gymapi.Vec3(-spacing, -spacing, 0.0)
         env_upper = gymapi.Vec3(spacing, spacing, spacing)
-        self.anymal_handles = []
+        self.bittle_handles = []
         self.envs = []
         for i in range(self.num_envs):
             # create env instance
@@ -290,19 +290,19 @@ class BittleTerrain(VecTask):
 
             for s in range(len(rigid_shape_prop)):
                 rigid_shape_prop[s].friction = friction_buckets[i % num_buckets]
-            self.gym.set_asset_rigid_shape_properties(anymal_asset, rigid_shape_prop)
-            anymal_handle = self.gym.create_actor(env_handle, anymal_asset, start_pose, "anymal", i, 1, 0)
-            self.gym.set_actor_dof_properties(env_handle, anymal_handle, dof_props)
-            self.gym.enable_actor_dof_force_sensors(env_handle, anymal_handle)
+            self.gym.set_asset_rigid_shape_properties(bittle_asset, rigid_shape_prop)
+            bittle_handle = self.gym.create_actor(env_handle, bittle_asset, start_pose, "bittle", i, 1, 0)
+            self.gym.set_actor_dof_properties(env_handle, bittle_handle, dof_props)
+            self.gym.enable_actor_dof_force_sensors(env_handle, bittle_handle)
             self.envs.append(env_handle)
-            self.anymal_handles.append(anymal_handle)
+            self.bittle_handles.append(bittle_handle)
 
         for i in range(len(feet_names)):
-            self.feet_indices[i] = self.gym.find_actor_rigid_body_handle(self.envs[0], self.anymal_handles[0], feet_names[i])
+            self.feet_indices[i] = self.gym.find_actor_rigid_body_handle(self.envs[0], self.bittle_handles[0], feet_names[i])
         for i in range(len(knee_names)):
-            self.knee_indices[i] = self.gym.find_actor_rigid_body_handle(self.envs[0], self.anymal_handles[0], knee_names[i])
+            self.knee_indices[i] = self.gym.find_actor_rigid_body_handle(self.envs[0], self.bittle_handles[0], knee_names[i])
 
-        self.base_index = self.gym.find_actor_rigid_body_handle(self.envs[0], self.anymal_handles[0], "base-frame-link")
+        self.base_index = self.gym.find_actor_rigid_body_handle(self.envs[0], self.bittle_handles[0], "base-frame-link")
 
     def check_termination(self):
         self.reset_buf = torch.norm(self.contact_forces[:, self.base_index, :], dim=1) > 1.0
