@@ -30,6 +30,7 @@
 from .ant import Ant
 from .anymal import Anymal
 from .anymal_terrain import AnymalTerrain
+from .atlas import Atlas
 from .ball_balance import BallBalance
 from .bittle import Bittle
 from .bittle_terrain import BittleTerrain
@@ -55,6 +56,7 @@ isaacgym_task_map = {
     "Ant": Ant,
     "Anymal": Anymal,
     "AnymalTerrain": AnymalTerrain,
+    "Atlas": Atlas,
     "BallBalance": BallBalance,
     "Bittle": Bittle,
     "BittleTerrain": BittleTerrain,
