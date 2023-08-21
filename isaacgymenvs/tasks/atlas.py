@@ -207,10 +207,10 @@ class Atlas(VecTask):
 
         body_names = self.gym.get_asset_rigid_body_names(anymal_asset)
         self.dof_names = self.gym.get_asset_dof_names(anymal_asset)
-        extremity_name = "SHANK" if asset_options.collapse_fixed_joints else "knee"
+        extremity_name = "foot" if asset_options.collapse_fixed_joints else "foot"
         feet_names = [s for s in body_names if extremity_name in s]
         self.feet_indices = torch.zeros(len(feet_names), dtype=torch.long, device=self.device, requires_grad=False)
-        knee_names = [s for s in body_names if "shoulder" in s]
+        knee_names = [s for s in body_names if "glut" in s]
         self.knee_indices = torch.zeros(len(knee_names), dtype=torch.long, device=self.device, requires_grad=False)
         self.base_index = 0
 
@@ -239,7 +239,7 @@ class Atlas(VecTask):
         for i in range(len(knee_names)):
             self.knee_indices[i] = self.gym.find_actor_rigid_body_handle(self.envs[0], self.anymal_handles[0], knee_names[i])
 
-        self.base_index = self.gym.find_actor_rigid_body_handle(self.envs[0], self.anymal_handles[0], "base-frame-link")
+        self.base_index = self.gym.find_actor_rigid_body_handle(self.envs[0], self.anymal_handles[0], "mtorso")
 
     def pre_physics_step(self, actions):
         self.actions = actions.clone().to(self.device)
@@ -323,6 +323,7 @@ class Atlas(VecTask):
         self.commands_x[env_ids] = torch_rand_float(self.command_x_range[0], self.command_x_range[1], (len(env_ids), 1), device=self.device).squeeze()
         self.commands_y[env_ids] = torch_rand_float(self.command_y_range[0], self.command_y_range[1], (len(env_ids), 1), device=self.device).squeeze()
         self.commands_yaw[env_ids] = torch_rand_float(self.command_yaw_range[0], self.command_yaw_range[1], (len(env_ids), 1), device=self.device).squeeze()
+        self.commands[env_ids] *= (torch.norm(self.commands[env_ids, :2], dim=1) > 0.25).unsqueeze(1) # set small commands to zero
 
         self.progress_buf[env_ids] = 0
         self.reset_buf[env_ids] = 1
@@ -395,8 +396,13 @@ def compute_anymal_reward(
 
     # reset agents
     reset = torch.norm(contact_forces[:, base_index, :], dim=1) > 1.5
-    reset = reset | torch.any(torch.norm(contact_forces[:, knee_indices, :], dim=2) > 1., dim=1)
-    reset = torch.where(up_proj < 0.85, torch.ones_like(reset), reset)
+    #print(contact_forces[0, :, :])
+    #print(torch.norm(contact_forces[:, base_index, :], dim=1))
+    #reset = reset | torch.any(torch.norm(contact_forces[:, knee_indices, :], dim=2) > 1., dim=1)
+    # stay upright
+    reset = torch.where(up_proj < 0.65, torch.ones_like(reset), reset)
+    # no flying
+    reset = torch.where(torso_position[:, 2] > 1.45, torch.ones_like(reset), reset)
 
     time_out = episode_lengths >= max_episode_length - 1  # no terminal reward for time-outs
     reset = reset | time_out

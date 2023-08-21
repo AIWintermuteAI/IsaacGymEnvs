@@ -44,7 +44,7 @@ params:
   load_path: ${...checkpoint} # path to the checkpoint to load
 
   config:
-    name: ${resolve_default:Atlas,${....experiment}}
+    name: ${resolve_default:AtlasTerrain,${....experiment}}
     full_experiment_name: ${.name}
     env_name: rlgpu
     ppo: True
