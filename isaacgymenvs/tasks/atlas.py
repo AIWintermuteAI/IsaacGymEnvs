@@ -54,14 +54,25 @@ class Atlas(VecTask):
 
         # reward scales
         self.rew_scales = {}
+        self.rew_scales["termination"] = self.cfg["env"]["learn"]["terminalReward"]
         self.rew_scales["lin_vel_xy"] = self.cfg["env"]["learn"]["linearVelocityXYRewardScale"]
+        self.rew_scales["lin_vel_z"] = self.cfg["env"]["learn"]["linearVelocityZRewardScale"]
         self.rew_scales["ang_vel_z"] = self.cfg["env"]["learn"]["angularVelocityZRewardScale"]
+        self.rew_scales["ang_vel_xy"] = self.cfg["env"]["learn"]["angularVelocityXYRewardScale"]
+        self.rew_scales["orient"] = self.cfg["env"]["learn"]["orientationRewardScale"]
         self.rew_scales["torque"] = self.cfg["env"]["learn"]["torqueRewardScale"]
-        self.rew_scales['heading_scale'] = self.cfg["env"]["learn"]["headingScale"]
-        self.rew_scales['up_scale'] = self.cfg["env"]["learn"]["upScale"]
+        self.rew_scales["joint_acc"] = self.cfg["env"]["learn"]["jointAccRewardScale"]
+        self.rew_scales["base_height"] = self.cfg["env"]["learn"]["baseHeightRewardScale"]
+        self.rew_scales["air_time"] = self.cfg["env"]["learn"]["feetAirTimeRewardScale"]
+        self.rew_scales["collision"] = self.cfg["env"]["learn"]["kneeCollisionRewardScale"]
+        self.rew_scales["stumble"] = self.cfg["env"]["learn"]["feetStumbleRewardScale"]
+        self.rew_scales["action_rate"] = self.cfg["env"]["learn"]["actionRateRewardScale"]
+        self.rew_scales["hip"] = self.cfg["env"]["learn"]["hipRewardScale"]
+        #self.rew_scales['heading_scale'] = self.cfg["env"]["learn"]["headingScale"]
+        #self.rew_scales['up_scale'] = self.cfg["env"]["learn"]["upScale"]
 
         # randomization
-        self.randomization_params = self.cfg["task"]["randomization_params"]
+        #self.randomization_params = self.cfg["task"]["randomization_params"]
         self.randomize = self.cfg["task"]["randomize"]
 
         # command ranges
@@ -70,9 +81,9 @@ class Atlas(VecTask):
         self.command_yaw_range = self.cfg["env"]["randomCommandVelocityRanges"]["yaw"]
 
         # plane params
-        self.plane_static_friction = self.cfg["env"]["plane"]["staticFriction"]
-        self.plane_dynamic_friction = self.cfg["env"]["plane"]["dynamicFriction"]
-        self.plane_restitution = self.cfg["env"]["plane"]["restitution"]
+        self.plane_static_friction = self.cfg["env"]["terrain"]["staticFriction"]
+        self.plane_dynamic_friction = self.cfg["env"]["terrain"]["dynamicFriction"]
+        self.plane_restitution = self.cfg["env"]["terrain"]["restitution"]
 
         # base init state
         pos = self.cfg["env"]["baseInitState"]["pos"]
@@ -128,10 +139,8 @@ class Atlas(VecTask):
         self.contact_forces = gymtorch.wrap_tensor(net_contact_forces).view(self.num_envs, -1, 3)  # shape: num_envs, num_bodies, xyz axis
         self.torques = gymtorch.wrap_tensor(torques).view(self.num_envs, self.num_dof)
 
-        self.commands = torch.zeros(self.num_envs, 3, dtype=torch.float, device=self.device, requires_grad=False)
-        self.commands_y = self.commands.view(self.num_envs, 3)[..., 1]
-        self.commands_x = self.commands.view(self.num_envs, 3)[..., 0]
-        self.commands_yaw = self.commands.view(self.num_envs, 3)[..., 2]
+        self.commands = torch.zeros(self.num_envs, 4, dtype=torch.float, device=self.device, requires_grad=False)
+        self.commands_scale = torch.tensor([self.lin_vel_scale, self.lin_vel_scale, self.ang_vel_scale], device=self.device, requires_grad=False,)
         self.default_dof_pos = torch.zeros_like(self.dof_pos, dtype=torch.float, device=self.device, requires_grad=False)
 
         for i in range(self.cfg["env"]["numActions"]):
@@ -144,10 +153,21 @@ class Atlas(VecTask):
         self.extras = {}
         self.initial_root_states = self.root_states.clone()
         self.initial_root_states[:] = to_torch(self.base_init_state, device=self.device, requires_grad=False)
+        self.forward_vec = to_torch([1., 0., 0.], device=self.device).repeat((self.num_envs, 1))
         self.gravity_vec = to_torch(get_axis_params(-1., self.up_axis_idx), device=self.device).repeat((self.num_envs, 1))
         self.actions = torch.zeros(self.num_envs, self.num_actions, dtype=torch.float, device=self.device, requires_grad=False)
 
+        self.last_actions = torch.zeros(self.num_envs, self.num_actions, dtype=torch.float, device=self.device, requires_grad=False)
+        self.feet_air_time = torch.zeros(self.num_envs, 2, dtype=torch.float, device=self.device, requires_grad=False)
+        self.last_dof_vel = torch.zeros_like(self.dof_vel)
+
         self.reset_idx(torch.arange(self.num_envs, device=self.device))
+
+        # reward episode sums
+        torch_zeros = lambda : torch.zeros(self.num_envs, dtype=torch.float, device=self.device, requires_grad=False)
+        self.episode_sums = {"lin_vel_xy": torch_zeros(), "lin_vel_z": torch_zeros(), "ang_vel_z": torch_zeros(), "ang_vel_xy": torch_zeros(),
+                             "orient": torch_zeros(), "torques": torch_zeros(), "joint_acc": torch_zeros(), "base_height": torch_zeros(),
+                             "air_time": torch_zeros(), "collision": torch_zeros(), "stumble": torch_zeros(), "action_rate": torch_zeros(), "hip": torch_zeros()}
 
         self.up_vec = to_torch(get_axis_params(1., self.up_axis_idx), device=self.device).repeat((self.num_envs, 1))
         self.heading_vec = to_torch([1, 0, 0], device=self.device).repeat((self.num_envs, 1))
@@ -249,13 +269,26 @@ class Atlas(VecTask):
     def post_physics_step(self):
         self.progress_buf += 1
 
+        # prepare quantities
+        self.base_quat = self.root_states[:, 3:7]
+        self.base_lin_vel = quat_rotate_inverse(self.base_quat, self.root_states[:, 7:10])
+        self.base_ang_vel = quat_rotate_inverse(self.base_quat, self.root_states[:, 10:13])
+        self.projected_gravity = quat_rotate_inverse(self.base_quat, self.gravity_vec)
+        forward = quat_apply(self.base_quat, self.forward_vec)
+        heading = torch.atan2(forward[:, 1], forward[:, 0])
+        self.commands[:, 2] = torch.clip(0.5*wrap_to_pi(self.commands[:, 3] - heading), -1., 1.)
+
         env_ids = self.reset_buf.nonzero(as_tuple=False).squeeze(-1)
         if len(env_ids) > 0:
             self.reset_idx(env_ids)
 
         self.prev_torques = self.torques.clone()
+        #self.compute_reward()
         self.compute_observations()
         self.compute_reward(self.actions)
+
+        self.last_actions[:] = self.actions[:]
+        self.last_dof_vel[:] = self.dof_vel[:]
 
     def compute_reward(self, actions):
         self.rew_buf[:], self.reset_buf[:] = compute_anymal_reward(
@@ -286,7 +319,7 @@ class Atlas(VecTask):
 
         self.obs_buf[:] = compute_anymal_observations(  # tensors
                                                         self.root_states,
-                                                        self.commands,
+                                                        self.commands[:, :3] * self.commands_scale,
                                                         self.dof_pos,
                                                         self.default_dof_pos,
                                                         self.dof_vel,
@@ -320,13 +353,86 @@ class Atlas(VecTask):
                                               gymtorch.unwrap_tensor(self.dof_state),
                                               gymtorch.unwrap_tensor(env_ids_int32), len(env_ids_int32))
 
-        self.commands_x[env_ids] = torch_rand_float(self.command_x_range[0], self.command_x_range[1], (len(env_ids), 1), device=self.device).squeeze()
-        self.commands_y[env_ids] = torch_rand_float(self.command_y_range[0], self.command_y_range[1], (len(env_ids), 1), device=self.device).squeeze()
-        self.commands_yaw[env_ids] = torch_rand_float(self.command_yaw_range[0], self.command_yaw_range[1], (len(env_ids), 1), device=self.device).squeeze()
+        self.commands[env_ids, 0] = torch_rand_float(self.command_x_range[0], self.command_x_range[1], (len(env_ids), 1), device=self.device).squeeze()
+        self.commands[env_ids, 1] = torch_rand_float(self.command_y_range[0], self.command_y_range[1], (len(env_ids), 1), device=self.device).squeeze()
+        self.commands[env_ids, 3] = torch_rand_float(self.command_yaw_range[0], self.command_yaw_range[1], (len(env_ids), 1), device=self.device).squeeze()
         self.commands[env_ids] *= (torch.norm(self.commands[env_ids, :2], dim=1) > 0.25).unsqueeze(1) # set small commands to zero
 
+        self.last_actions[env_ids] = 0.
+        self.last_dof_vel[env_ids] = 0.
+        self.feet_air_time[env_ids] = 0.
         self.progress_buf[env_ids] = 0
         self.reset_buf[env_ids] = 1
+"""
+    def compute_reward(self):
+        # velocity tracking reward
+        lin_vel_error = torch.sum(torch.square(self.commands[:, :2] - self.base_lin_vel[:, :2]), dim=1)
+        ang_vel_error = torch.square(self.commands[:, 2] - self.base_ang_vel[:, 2])
+        rew_lin_vel_xy = torch.exp(-lin_vel_error/0.25) * self.rew_scales["lin_vel_xy"]
+        rew_ang_vel_z = torch.exp(-ang_vel_error/0.25) * self.rew_scales["ang_vel_z"]
+
+        # other base velocity penalties
+        rew_lin_vel_z = torch.square(self.base_lin_vel[:, 2]) * self.rew_scales["lin_vel_z"]
+        rew_ang_vel_xy = torch.sum(torch.square(self.base_ang_vel[:, :2]), dim=1) * self.rew_scales["ang_vel_xy"]
+
+        # orientation penalty
+        rew_orient = torch.sum(torch.square(self.projected_gravity[:, :2]), dim=1) * self.rew_scales["orient"]
+
+        # base height penalty
+        rew_base_height = torch.square(self.root_states[:, 2] - 0.52) * self.rew_scales["base_height"] # TODO add target base height to cfg
+
+        # torque penalty
+        rew_torque = torch.sum(torch.square(self.torques), dim=1) * self.rew_scales["torque"]
+
+        # joint acc penalty
+        rew_joint_acc = torch.sum(torch.square(self.last_dof_vel - self.dof_vel), dim=1) * self.rew_scales["joint_acc"]
+
+        # collision penalty
+        knee_contact = torch.norm(self.contact_forces[:, self.knee_indices, :], dim=2) > 1.
+        rew_collision = torch.sum(knee_contact, dim=1) * self.rew_scales["collision"] # sum vs any ?
+
+        # stumbling penalty
+        stumble = (torch.norm(self.contact_forces[:, self.feet_indices, :2], dim=2) > 5.) * (torch.abs(self.contact_forces[:, self.feet_indices, 2]) < 1.)
+        rew_stumble = torch.sum(stumble, dim=1) * self.rew_scales["stumble"]
+
+        # action rate penalty
+        rew_action_rate = torch.sum(torch.square(self.last_actions - self.actions), dim=1) * self.rew_scales["action_rate"]
+
+        # air time reward
+        # contact = torch.norm(contact_forces[:, feet_indices, :], dim=2) > 1.
+        contact = self.contact_forces[:, self.feet_indices, 2] > 1.
+        first_contact = (self.feet_air_time > 0.) * contact
+        self.feet_air_time += self.dt
+        rew_airTime = torch.sum((self.feet_air_time - 0.5) * first_contact, dim=1) * self.rew_scales["air_time"] # reward only on first contact with the ground
+        rew_airTime *= torch.norm(self.commands[:, :2], dim=1) > 0.1 #no reward for zero command
+        self.feet_air_time *= ~contact
+
+        # cosmetic penalty for hip motion
+        rew_hip = torch.sum(torch.abs(self.dof_pos[:, [0, 3, 6, 9]] - self.default_dof_pos[:, [0, 3, 6, 9]]), dim=1)* self.rew_scales["hip"]
+
+        # total reward
+        self.rew_buf = rew_lin_vel_xy + rew_ang_vel_z + rew_lin_vel_z + rew_ang_vel_xy + rew_orient + rew_base_height +\
+                    rew_torque + rew_joint_acc + rew_collision + rew_action_rate + rew_airTime + rew_hip + rew_stumble
+        self.rew_buf = torch.clip(self.rew_buf, min=0., max=None)
+
+        # add termination reward
+        self.rew_buf += self.rew_scales["termination"] * self.reset_buf * ~self.timeout_buf
+
+        # log episode reward sums
+        self.episode_sums["lin_vel_xy"] += rew_lin_vel_xy
+        self.episode_sums["ang_vel_z"] += rew_ang_vel_z
+        self.episode_sums["lin_vel_z"] += rew_lin_vel_z
+        self.episode_sums["ang_vel_xy"] += rew_ang_vel_xy
+        self.episode_sums["orient"] += rew_orient
+        self.episode_sums["torques"] += rew_torque
+        self.episode_sums["joint_acc"] += rew_joint_acc
+        self.episode_sums["collision"] += rew_collision
+        self.episode_sums["stumble"] += rew_stumble
+        self.episode_sums["action_rate"] += rew_action_rate
+        self.episode_sums["air_time"] += rew_airTime
+        self.episode_sums["base_height"] += rew_base_height
+        self.episode_sums["hip"] += rew_hip
+"""
 
 #####################################################################
 ###=========================jit functions=========================###
@@ -372,15 +478,15 @@ def compute_anymal_reward(
     heading_proj = torch.bmm(heading_vec.view(num_envs, 1, 3), target_dirs.view(num_envs, 3, 1)).view(num_envs)
 
     # reward from direction headed
-    heading_weight_tensor = torch.ones_like(heading_proj) * rew_scales["heading_scale"]
-    heading_reward = torch.where(heading_proj > 0.8, heading_weight_tensor, rew_scales["heading_scale"] * heading_proj / 0.8)
+    #heading_weight_tensor = torch.ones_like(heading_proj) * rew_scales["heading_scale"]
+    #heading_reward = torch.where(heading_proj > 0.8, heading_weight_tensor, rew_scales["heading_scale"] * heading_proj / 0.8)
 
     up_vec = get_basis_vector(torso_quat, vec1).view(num_envs, 3)
     up_proj = up_vec[:, 2]
 
     # aligning up axis of ant and environment
-    up_reward = torch.zeros_like(heading_reward)
-    up_reward = torch.where(up_proj > 0.9, up_reward + rew_scales['up_scale'], up_reward)
+    #up_reward = torch.zeros_like(heading_reward)
+    #up_reward = torch.where(up_proj > 0.9, up_reward + rew_scales['up_scale'], up_reward)
 
     # velocity tracking reward
     lin_vel_error = torch.sum(torch.square(commands[:, :2] - base_lin_vel[:, :2]), dim=1)
@@ -391,7 +497,7 @@ def compute_anymal_reward(
     # torque penalty(reward)
     rew_torque = torch.sum(torch.abs(prev_torques - torques), dim=1) * rew_scales["torque"]
 
-    total_reward = rew_lin_vel_xy + rew_ang_vel_z + rew_torque + up_reward # + heading_reward
+    total_reward = rew_lin_vel_xy + rew_ang_vel_z + rew_torque #+ up_reward # + heading_reward
     total_reward = torch.clip(total_reward, 0., None)
 
     # reset agents
@@ -431,15 +537,26 @@ def compute_anymal_observations(root_states: Tensor,
     projected_gravity = quat_rotate(base_quat, gravity_vec)
     dof_pos_scaled = (dof_pos - default_dof_pos) * dof_pos_scale
 
-    commands_scaled = commands*torch.tensor([lin_vel_scale, lin_vel_scale, ang_vel_scale], requires_grad=False, device=commands.device)
-
     obs = torch.cat((base_lin_vel,
                      base_ang_vel,
                      projected_gravity,
-                     commands_scaled,
+                     commands,
                      dof_pos_scaled,
                      dof_vel*dof_vel_scale,
                      actions
                      ), dim=-1)
 
     return obs
+
+@torch.jit.script
+def quat_apply_yaw(quat, vec):
+    quat_yaw = quat.clone().view(-1, 4)
+    quat_yaw[:, :2] = 0.
+    quat_yaw = normalize(quat_yaw)
+    return quat_apply(quat_yaw, vec)
+
+@torch.jit.script
+def wrap_to_pi(angles):
+    angles %= 2*np.pi
+    angles -= 2*np.pi * (angles > np.pi)
+    return angles
