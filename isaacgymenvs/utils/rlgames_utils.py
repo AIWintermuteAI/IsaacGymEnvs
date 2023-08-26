@@ -64,7 +64,7 @@ def get_rlgames_env_creator(
         multi_gpu: Whether to use multi gpu
         post_create_hook: Hooks to be called after environment creation.
             [Needed to setup WandB only for one of the RL Games instances when doing multiple GPUs]
-        virtual_screen_capture: Set to True to allow the users get captured screen in RGB array via `env.render(mode='rgb_array')`. 
+        virtual_screen_capture: Set to True to allow the users get captured screen in RGB array via `env.render(mode='rgb_array')`.
         force_render: Set to True to always force rendering in the steps (if the `control_freq_inv` is greater than 1 we suggest stting this arg to True)
     Returns:
         A VecTaskPython object.
@@ -134,8 +134,10 @@ class RLGPUAlgoObserver(AlgoObserver):
                         infotensor = torch.cat((infotensor, ep_info[key].to(self.algo.device)))
                     value = torch.mean(infotensor)
                     self.writer.add_scalar('Episode/' + key, value, epoch_num)
+                    print('Episode/' + key, value, epoch_num)
             self.ep_infos.clear()
-        
+            print()
+
         for k, v in self.direct_info.items():
             self.writer.add_scalar(f'{k}/frame', v, frame)
             self.writer.add_scalar(f'{k}/iter', v, epoch_num)
@@ -157,7 +159,7 @@ class RLGPUEnv(vecenv.IVecEnv):
 
     def reset(self):
         return self.env.reset()
-    
+
     def reset_done(self):
         return self.env.reset_done()
 

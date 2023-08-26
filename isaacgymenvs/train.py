@@ -66,7 +66,6 @@ def launch_rlg_hydra(cfg: DictConfig):
         cfg.checkpoint = to_absolute_path(cfg.checkpoint)
 
     cfg_dict = omegaconf_to_dict(cfg)
-    print_dict(cfg_dict)
 
     # set numpy formatting for printing only
     set_np_formatting()
@@ -98,9 +97,9 @@ def launch_rlg_hydra(cfg: DictConfig):
 
     def create_env_thunk(**kwargs):
         envs = isaacgymenvs.make(
-            cfg.seed, 
-            cfg.task_name, 
-            cfg.task.env.numEnvs, 
+            cfg.seed,
+            cfg.task_name,
+            cfg.task.env.numEnvs,
             cfg.sim_device,
             cfg.rl_device,
             cfg.graphics_device_id,
@@ -148,16 +147,19 @@ def launch_rlg_hydra(cfg: DictConfig):
     runner.reset()
 
     # dump config dict
-    experiment_dir = os.path.join('runs', cfg.train.params.config.name)
-    os.makedirs(experiment_dir, exist_ok=True)
-    with open(os.path.join(experiment_dir, 'config.yaml'), 'w') as f:
+    cfg.experiment_dir = os.path.join('runs', cfg.train.params.config.name)
+    os.makedirs(cfg.experiment_dir, exist_ok=True)
+
+    with open(os.path.join(cfg.experiment_dir, 'config.yaml'), 'w') as f:
         f.write(OmegaConf.to_yaml(cfg))
 
     runner.run({
         'train': not cfg.test,
         'play': cfg.test,
         'checkpoint' : cfg.checkpoint,
-        'sigma' : None
+        'sigma' : None,
+        'experiment_dir' : cfg.experiment_dir,
+        'experiment' : cfg.experiment if cfg.experiment else cfg.train.params.config.name
     })
 
     if cfg.wandb_activate and rank == 0:
