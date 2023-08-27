@@ -38,13 +38,13 @@ from isaacgym.torch_utils import *
 from isaacgymenvs.utils.torch_jit_utils import *
 from ..base.vec_task import VecTask
 
-DOF_BODY_IDS = [1, 2, 3, 4, 6, 7, 9, 10, 11, 12, 13, 14]
-DOF_OFFSETS = [0, 3, 6, 9, 10, 13, 14, 17, 18, 21, 24, 25, 28]
-NUM_OBS = 13 + 52 + 28 + 12 # [root_h, root_rot, root_vel, root_ang_vel, dof_pos, dof_vel, key_body_pos]
-NUM_ACTIONS = 28
+DOF_BODY_IDS = [1, 2, 3, 4, 6, 7, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
+DOF_OFFSETS = [0, 3, 6, 9, 10, 13, 14, 17, 18, 21, 24, 25, 28, 31]
+NUM_OBS = 107 #13 + 52 + 28 + 12 # [root_h, root_rot, root_vel, root_ang_vel, dof_pos, dof_vel, key_body_pos]
+NUM_ACTIONS = 30
 
 
-KEY_BODY_NAMES = ["right_hand", "left_hand", "right_foot", "left_foot"]
+KEY_BODY_NAMES = ["r_hand", "l_hand", "r_foot", "l_foot"]
 
 class HumanoidAMPBase(VecTask):
 
@@ -71,10 +71,10 @@ class HumanoidAMPBase(VecTask):
         self.cfg["env"]["numActions"] = self.get_action_size()
 
         super().__init__(config=self.cfg, rl_device=rl_device, sim_device=sim_device, graphics_device_id=graphics_device_id, headless=headless, virtual_screen_capture=virtual_screen_capture, force_render=force_render)
-        
+
         dt = self.cfg["sim"]["dt"]
         self.dt = self.control_freq_inv * dt
-        
+
         # get gym GPU state tensors
         actor_root_state = self.gym.acquire_actor_root_state_tensor(self.sim)
         dof_state_tensor = self.gym.acquire_dof_state_tensor(self.sim)
@@ -103,25 +103,25 @@ class HumanoidAMPBase(VecTask):
         self._dof_vel = self._dof_state.view(self.num_envs, self.num_dof, 2)[..., 1]
 
         self._initial_dof_pos = torch.zeros_like(self._dof_pos, device=self.device, dtype=torch.float)
-        right_shoulder_x_handle = self.gym.find_actor_dof_handle(self.envs[0], self.humanoid_handles[0], "right_shoulder_x")
-        left_shoulder_x_handle = self.gym.find_actor_dof_handle(self.envs[0], self.humanoid_handles[0], "left_shoulder_x")
+        right_shoulder_x_handle = self.gym.find_actor_dof_handle(self.envs[0], self.humanoid_handles[0], "r_arm_shx")
+        left_shoulder_x_handle = self.gym.find_actor_dof_handle(self.envs[0], self.humanoid_handles[0], "l_arm_shx")
         self._initial_dof_pos[:, right_shoulder_x_handle] = 0.5 * np.pi
         self._initial_dof_pos[:, left_shoulder_x_handle] = -0.5 * np.pi
 
         self._initial_dof_vel = torch.zeros_like(self._dof_vel, device=self.device, dtype=torch.float)
-        
+
         self._rigid_body_state = gymtorch.wrap_tensor(rigid_body_state)
         self._rigid_body_pos = self._rigid_body_state.view(self.num_envs, self.num_bodies, 13)[..., 0:3]
         self._rigid_body_rot = self._rigid_body_state.view(self.num_envs, self.num_bodies, 13)[..., 3:7]
         self._rigid_body_vel = self._rigid_body_state.view(self.num_envs, self.num_bodies, 13)[..., 7:10]
         self._rigid_body_ang_vel = self._rigid_body_state.view(self.num_envs, self.num_bodies, 13)[..., 10:13]
         self._contact_forces = gymtorch.wrap_tensor(contact_force_tensor).view(self.num_envs, self.num_bodies, 3)
-        
+
         self._terminate_buf = torch.ones(self.num_envs, device=self.device, dtype=torch.long)
-        
+
         if self.viewer != None:
             self._init_camera()
-            
+
         return
 
     def get_obs_size(self):
@@ -183,15 +183,18 @@ class HumanoidAMPBase(VecTask):
         asset_options = gymapi.AssetOptions()
         asset_options.angular_damping = 0.01
         asset_options.max_angular_velocity = 100.0
+        asset_options.flip_visual_attachments = True
         asset_options.default_dof_drive_mode = gymapi.DOF_MODE_NONE
         humanoid_asset = self.gym.load_asset(self.sim, asset_root, asset_file, asset_options)
 
-        actuator_props = self.gym.get_asset_actuator_properties(humanoid_asset)
-        motor_efforts = [prop.motor_effort for prop in actuator_props]
-        
+        dof_props = self.gym.get_asset_dof_properties(humanoid_asset)
+
+        print(len(dof_props))
+        motor_efforts = [prop[5] for prop in dof_props]
+
         # create force sensors at the feet
-        right_foot_idx = self.gym.find_asset_rigid_body_index(humanoid_asset, "right_foot")
-        left_foot_idx = self.gym.find_asset_rigid_body_index(humanoid_asset, "left_foot")
+        right_foot_idx = self.gym.find_asset_rigid_body_index(humanoid_asset, "r_foot")
+        left_foot_idx = self.gym.find_asset_rigid_body_index(humanoid_asset, "l_foot")
         sensor_pose = gymapi.Transform()
 
         self.gym.create_asset_force_sensor(humanoid_asset, right_foot_idx, sensor_pose)
@@ -206,7 +209,7 @@ class HumanoidAMPBase(VecTask):
         self.num_joints = self.gym.get_asset_joint_count(humanoid_asset)
 
         start_pose = gymapi.Transform()
-        start_pose.p = gymapi.Vec3(*get_axis_params(0.89, self.up_axis_idx))
+        start_pose.p = gymapi.Vec3(*get_axis_params(0.95, self.up_axis_idx))
         start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
 
         self.start_rotation = torch.tensor([start_pose.r.x, start_pose.r.y, start_pose.r.z, start_pose.r.w], device=self.device)
@@ -215,21 +218,21 @@ class HumanoidAMPBase(VecTask):
         self.envs = []
         self.dof_limits_lower = []
         self.dof_limits_upper = []
-        
+
         for i in range(self.num_envs):
             # create env instance
             env_ptr = self.gym.create_env(
                 self.sim, lower, upper, num_per_row
             )
             contact_filter = 0
-            
+
             handle = self.gym.create_actor(env_ptr, humanoid_asset, start_pose, "humanoid", i, contact_filter, 0)
 
             self.gym.enable_actor_dof_force_sensors(env_ptr, handle)
 
-            for j in range(self.num_bodies):
-                self.gym.set_rigid_body_color(
-                    env_ptr, handle, j, gymapi.MESH_VISUAL, gymapi.Vec3(0.4706, 0.549, 0.6863))
+            #for j in range(self.num_bodies):
+            #    self.gym.set_rigid_body_color(
+            #        env_ptr, handle, j, gymapi.MESH_VISUAL, gymapi.Vec3(0.4706, 0.549, 0.6863))
 
             self.envs.append(env_ptr)
             self.humanoid_handles.append(handle)
@@ -253,15 +256,17 @@ class HumanoidAMPBase(VecTask):
 
         self._key_body_ids = self._build_key_body_ids_tensor(env_ptr, handle)
         self._contact_body_ids = self._build_contact_body_ids_tensor(env_ptr, handle)
-        
+
         if (self._pd_control):
             self._build_pd_action_offset_scale()
+
+        self.base_index = self.gym.find_actor_rigid_body_handle(self.envs[0], self.humanoid_handles[0], "utorso")
 
         return
 
     def _build_pd_action_offset_scale(self):
         num_joints = len(DOF_OFFSETS) - 1
-        
+
         lim_low = self.dof_limits_lower.cpu().numpy()
         lim_high = self.dof_limits_upper.cpu().numpy()
 
@@ -277,7 +282,7 @@ class HumanoidAMPBase(VecTask):
                 curr_low = lim_low[dof_offset]
                 curr_high = lim_high[dof_offset]
                 curr_mid = 0.5 * (curr_high + curr_low)
-                
+
                 # extend the action range to be a bit beyond the joint limits so that the motors
                 # don't lose their strength as they approach the joint limits
                 curr_scale = 0.7 * (curr_high - curr_low)
@@ -301,7 +306,7 @@ class HumanoidAMPBase(VecTask):
     def _compute_reset(self):
         self.reset_buf[:], self._terminate_buf[:] = compute_humanoid_reset(self.reset_buf, self.progress_buf,
                                                    self._contact_forces, self._contact_body_ids,
-                                                   self._rigid_body_pos, self.max_episode_length,
+                                                   self._rigid_body_pos[:, self.base_index, :], self.max_episode_length,
                                                    self._enable_early_termination, self._termination_height)
         return
 
@@ -336,7 +341,7 @@ class HumanoidAMPBase(VecTask):
             dof_pos = self._dof_pos[env_ids]
             dof_vel = self._dof_vel[env_ids]
             key_body_pos = self._rigid_body_pos[env_ids][:, self._key_body_ids, :]
-        
+
         obs = compute_humanoid_observations(root_states, dof_pos, dof_vel,
                                             key_body_pos, self._local_root_obs)
         return obs
@@ -361,7 +366,8 @@ class HumanoidAMPBase(VecTask):
 
     def pre_physics_step(self, actions):
         self.actions = actions.to(self.device).clone()
-
+        assert not actions.isnan().any()
+        #self.actions = torch.zeros_like(actions)
         if (self._pd_control):
             pd_tar = self._action_to_pd_targets(self.actions)
             pd_tar_tensor = gymtorch.unwrap_tensor(pd_tar)
@@ -380,7 +386,7 @@ class HumanoidAMPBase(VecTask):
         self._compute_observations()
         self._compute_reward(self.actions)
         self._compute_reset()
-        
+
         self.extras["terminate"] = self._terminate_buf
 
         # debug viz
@@ -423,9 +429,9 @@ class HumanoidAMPBase(VecTask):
     def _init_camera(self):
         self.gym.refresh_actor_root_state_tensor(self.sim)
         self._cam_prev_char_pos = self._root_states[0, 0:3].cpu().numpy()
-        
-        cam_pos = gymapi.Vec3(self._cam_prev_char_pos[0], 
-                              self._cam_prev_char_pos[1] - 3.0, 
+
+        cam_pos = gymapi.Vec3(self._cam_prev_char_pos[0],
+                              self._cam_prev_char_pos[1] - 3.0,
                               1.0)
         cam_target = gymapi.Vec3(self._cam_prev_char_pos[0],
                                  self._cam_prev_char_pos[1],
@@ -436,14 +442,14 @@ class HumanoidAMPBase(VecTask):
     def _update_camera(self):
         self.gym.refresh_actor_root_state_tensor(self.sim)
         char_root_pos = self._root_states[0, 0:3].cpu().numpy()
-        
+
         cam_trans = self.gym.get_viewer_camera_transform(self.viewer, None)
         cam_pos = np.array([cam_trans.p.x, cam_trans.p.y, cam_trans.p.z])
         cam_delta = cam_pos - self._cam_prev_char_pos
 
         new_cam_target = gymapi.Vec3(char_root_pos[0], char_root_pos[1], 1.0)
-        new_cam_pos = gymapi.Vec3(char_root_pos[0] + cam_delta[0], 
-                                  char_root_pos[1] + cam_delta[1], 
+        new_cam_pos = gymapi.Vec3(char_root_pos[0] + cam_delta[0],
+                                  char_root_pos[1] + cam_delta[1],
                                   cam_pos[2])
 
         self.gym.viewer_camera_look_at(self.viewer, None, new_cam_pos, new_cam_target)
@@ -513,11 +519,11 @@ def compute_humanoid_observations(root_states, dof_pos, dof_vel, key_body_pos, l
 
     root_pos_expand = root_pos.unsqueeze(-2)
     local_key_body_pos = key_body_pos - root_pos_expand
-    
+
     heading_rot_expand = heading_rot.unsqueeze(-2)
     heading_rot_expand = heading_rot_expand.repeat((1, local_key_body_pos.shape[1], 1))
     flat_end_pos = local_key_body_pos.view(local_key_body_pos.shape[0] * local_key_body_pos.shape[1], local_key_body_pos.shape[2])
-    flat_heading_rot = heading_rot_expand.view(heading_rot_expand.shape[0] * heading_rot_expand.shape[1], 
+    flat_heading_rot = heading_rot_expand.view(heading_rot_expand.shape[0] * heading_rot_expand.shape[1],
                                                heading_rot_expand.shape[2])
     local_end_pos = my_quat_rotate(flat_heading_rot, flat_end_pos)
     flat_local_key_pos = local_end_pos.view(local_key_body_pos.shape[0], local_key_body_pos.shape[1] * local_key_body_pos.shape[2])
@@ -525,6 +531,7 @@ def compute_humanoid_observations(root_states, dof_pos, dof_vel, key_body_pos, l
     dof_obs = dof_to_obs(dof_pos)
 
     obs = torch.cat((root_h, root_rot_obs, local_root_vel, local_root_ang_vel, dof_obs, dof_vel, flat_local_key_pos), dim=-1)
+    assert not obs.isnan().any()
     return obs
 
 @torch.jit.script
@@ -546,8 +553,9 @@ def compute_humanoid_reset(reset_buf, progress_buf, contact_buf, contact_body_id
         fall_contact = torch.any(fall_contact, dim=-1)
 
         body_height = rigid_body_pos[..., 2]
+        #print(body_height[0])
         fall_height = body_height < termination_height
-        fall_height[:, contact_body_ids] = False
+        #fall_height[:, contact_body_ids] = False
         fall_height = torch.any(fall_height, dim=-1)
 
         has_fallen = torch.logical_and(fall_contact, fall_height)
@@ -556,7 +564,7 @@ def compute_humanoid_reset(reset_buf, progress_buf, contact_buf, contact_body_id
         # so only check after first couple of steps
         has_fallen *= (progress_buf > 1)
         terminated = torch.where(has_fallen, torch.ones_like(reset_buf), terminated)
-    
+
     reset = torch.where(progress_buf >= max_episode_length - 1, torch.ones_like(reset_buf), terminated)
 
     return reset, terminated

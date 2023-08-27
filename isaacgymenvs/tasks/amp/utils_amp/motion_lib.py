@@ -67,7 +67,7 @@ class MotionLib():
     def sample_time(self, motion_ids, truncate_time=None):
         n = len(motion_ids)
         phase = np.random.uniform(low=0.0, high=1.0, size=motion_ids.shape)
-        
+
         motion_len = self._motion_lengths[motion_ids]
         if (truncate_time is not None):
             assert(truncate_time >= 0.0)
@@ -120,7 +120,7 @@ class MotionLib():
 
             root_vel[ids, :] = curr_motion.global_root_velocity[frame_idx0[ids]].numpy()
             root_ang_vel[ids, :] = curr_motion.global_root_angular_velocity[frame_idx0[ids]].numpy()
-            
+            print(self._key_body_ids[np.newaxis, :])
             key_pos0[ids, :, :] = curr_motion.global_translation[frame_idx0[ids][:, np.newaxis], self._key_body_ids[np.newaxis, :]].numpy()
             key_pos1[ids, :, :] = curr_motion.global_translation[frame_idx1[ids][:, np.newaxis], self._key_body_ids[np.newaxis, :]].numpy()
 
@@ -146,7 +146,7 @@ class MotionLib():
 
         blend_exp = blend.unsqueeze(-1)
         key_pos = (1.0 - blend_exp) * key_pos0 + blend_exp * key_pos1
-        
+
         local_rot = slerp(local_rot0, local_rot1, torch.unsqueeze(blend, axis=-1))
         dof_pos = self._local_rotation_to_dof(local_rot)
 
@@ -178,13 +178,13 @@ class MotionLib():
             self._motion_fps.append(motion_fps)
             self._motion_dt.append(curr_dt)
             self._motion_num_frames.append(num_frames)
- 
+
             curr_dof_vels = self._compute_motion_dof_vels(curr_motion)
             curr_motion.dof_vels = curr_dof_vels
 
             self._motions.append(curr_motion)
             self._motion_lengths.append(curr_len)
-            
+
             curr_weight = motion_weights[f]
             self._motion_weights.append(curr_weight)
             self._motion_files.append(curr_file)
@@ -256,12 +256,12 @@ class MotionLib():
             frame_dof_vel = self._local_rotation_to_dof_vel(local_rot0, local_rot1, dt)
             frame_dof_vel = frame_dof_vel
             dof_vels.append(frame_dof_vel)
-        
+
         dof_vels.append(dof_vels[-1])
         dof_vels = np.array(dof_vels)
 
         return dof_vels
-    
+
     def _local_rotation_to_dof(self, local_rot):
         body_ids = DOF_BODY_IDS
         dof_offsets = DOF_OFFSETS
