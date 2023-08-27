@@ -31,7 +31,6 @@ from .ant import Ant
 from .anymal import Anymal
 from .anymal_terrain import AnymalTerrain
 from .atlas import Atlas
-from .atlas_terrain import AtlasTerrain
 from .ball_balance import BallBalance
 from .bittle import Bittle
 from .bittle_terrain import BittleTerrain
@@ -50,6 +49,8 @@ from .quadcopter import Quadcopter
 from .shadow_hand import ShadowHand
 from .allegro_hand import AllegroHand
 from .trifinger import Trifinger
+from .quadruped import Quadruped
+from .quadruped_amp import QuadrupedAMP
 
 # Mappings from strings to environments
 isaacgym_task_map = {
@@ -58,7 +59,6 @@ isaacgym_task_map = {
     "Anymal": Anymal,
     "AnymalTerrain": AnymalTerrain,
     "Atlas": Atlas,
-    "AtlasTerrain": AtlasTerrain,
     "BallBalance": BallBalance,
     "Bittle": Bittle,
     "BittleTerrain": BittleTerrain,
@@ -74,6 +74,8 @@ isaacgym_task_map = {
     "HumanoidAMP": HumanoidAMP,
     "Ingenuity": Ingenuity,
     "Quadcopter": Quadcopter,
+    "Quadruped": Quadruped,
+    "QuadrupedAMP": QuadrupedAMP,
     "ShadowHand": ShadowHand,
     "Trifinger": Trifinger,
 }

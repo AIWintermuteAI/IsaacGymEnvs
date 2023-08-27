@@ -26,7 +26,7 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import torch 
+import torch
 
 from rl_games.algos_torch import players
 from rl_games.algos_torch import torch_ext
@@ -42,13 +42,13 @@ class CommonPlayer(players.PpoPlayerContinuous):
 
         self.normalize_input = self.config['normalize_input']
         self.normalize_value = self.config['normalize_value']
-        
+
         self._setup_action_space()
         self.mask = [False]
-        
+
         net_config = self._build_net_config()
-        self._build_net(net_config)   
-        
+        self._build_net(net_config)
+
         return
 
     def run(self):
@@ -100,7 +100,7 @@ class CommonPlayer(players.PpoPlayerContinuous):
                 obs_dict, r, done, info =  self.env_step(self.env, action)
                 cr += r
                 steps += 1
-  
+
                 self._post_step(info)
 
                 if render:
@@ -186,11 +186,11 @@ class CommonPlayer(players.PpoPlayerContinuous):
             'value_size': self.env_info.get('value_size', 1),
             'normalize_value': self.normalize_value,
             'normalize_input': self.normalize_input,
-        } 
+        }
         return config
 
     def _setup_action_space(self):
-        self.actions_num = self.action_space.shape[0] 
+        self.actions_num = self.action_space.shape[0]
         self.actions_low = torch.from_numpy(self.action_space.low.copy()).float().to(self.device)
         self.actions_high = torch.from_numpy(self.action_space.high.copy()).float().to(self.device)
         return

@@ -45,11 +45,11 @@ wandb_activate: False
 wandb_group: ''
 wandb_name: ${train.params.config.name}
 wandb_entity: ''
-wandb_project: ${task.wandb_project}
-capture_video: ${task.capture_video}
-capture_video_freq: ${task.capture_video_freq}
-capture_video_len: ${task.capture_video_len}
-force_render: ${task.force_render}
+wandb_project: 'isaacgymenvs'
+capture_video: False
+capture_video_freq: 1464
+capture_video_len: 100
+force_render: True
 
 # disables rendering
 headless: False
