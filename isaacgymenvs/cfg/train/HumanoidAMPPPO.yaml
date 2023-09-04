@@ -49,7 +49,7 @@ params:
     env_name: rlgpu
     ppo: True
     multi_gpu: False
-    mixed_precision: False
+    mixed_precision: True
     normalize_input: True
     normalize_value: True
     value_bootstrap: True
@@ -59,11 +59,11 @@ params:
     normalize_advantage: True
     gamma: 0.99
     tau: 0.95
-    learning_rate: 5e-5
-    lr_schedule: constant
+    learning_rate: 5e-5 # overwritten by adaptive lr_schedule
+    lr_schedule: adaptive
     kl_threshold: 0.008
     score_to_win: 20000
-    max_epochs: ${resolve_default:5000,${....max_iterations}}
+    max_epochs: ${resolve_default:1000,${....max_iterations}}
     save_best_after: 100
     save_frequency: 50
     print_stats: True
@@ -72,7 +72,7 @@ params:
     truncate_grads: False
     e_clip: 0.2
     horizon_length: 16
-    minibatch_size: 32768
+    minibatch_size: 1028
     mini_epochs: 6
     critic_coef: 5
     clip_value: False
@@ -82,13 +82,20 @@ params:
     amp_replay_buffer_size: 1000000
     amp_replay_keep_prob: 0.01
     amp_batch_size: 512
-    amp_minibatch_size: 4096
+    amp_minibatch_size: 1028
     disc_coef: 5
     disc_logit_reg: 0.05
     disc_grad_penalty: 5
     disc_reward_scale: 2
     disc_weight_decay: 0.0001
     normalize_amp_input: True
+    print_disc_prediction: True
 
     task_reward_w: 0.0
     disc_reward_w: 1.0
+
+    player:
+      #render: True
+      deterministic: True
+      num_games: 256
+      print_stats: True
