@@ -123,6 +123,7 @@ class RLGPUAlgoObserver(AlgoObserver):
 
     def after_print_stats(self, frame, epoch_num, total_time):
         if self.ep_infos:
+            print('Episode ', epoch_num)
             for key in self.ep_infos[0]:
                     infotensor = torch.tensor([], device=self.algo.device)
                     for ep_info in self.ep_infos:
@@ -134,7 +135,7 @@ class RLGPUAlgoObserver(AlgoObserver):
                         infotensor = torch.cat((infotensor, ep_info[key].to(self.algo.device)))
                     value = torch.mean(infotensor)
                     self.writer.add_scalar('Episode/' + key, value, epoch_num)
-                    print('Episode/' + key, value, epoch_num)
+                    print(key, value.cpu().numpy())
             self.ep_infos.clear()
             print()
 

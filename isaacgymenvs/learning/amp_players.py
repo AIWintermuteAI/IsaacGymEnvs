@@ -26,7 +26,7 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import torch 
+import torch
 
 from rl_games.algos_torch import torch_ext
 from rl_games.algos_torch.running_mean_std import RunningMeanStd
@@ -39,11 +39,11 @@ class AMPPlayerContinuous(common_player.CommonPlayer):
 
     def __init__(self, params):
         config = params['config']
-
+        self.is_determenistic = config['player']['deterministic']
         self._normalize_amp_input = config.get('normalize_amp_input', True)
         self._disc_reward_scale = config['disc_reward_scale']
         self._print_disc_prediction = config.get('print_disc_prediction', False)
-        
+
         super().__init__(params)
         return
 
@@ -53,14 +53,14 @@ class AMPPlayerContinuous(common_player.CommonPlayer):
             checkpoint = torch_ext.load_checkpoint(fn)
             self._amp_input_mean_std.load_state_dict(checkpoint['amp_input_mean_std'])
         return
-    
+
     def _build_net(self, config):
         super()._build_net(config)
-        
+
         if self._normalize_amp_input:
             self._amp_input_mean_std = RunningMeanStd(config['amp_input_shape']).to(self.device)
-            self._amp_input_mean_std.eval()  
-        
+            self._amp_input_mean_std.eval()
+
         return
 
     def _post_step(self, info):
@@ -110,7 +110,7 @@ class AMPPlayerContinuous(common_player.CommonPlayer):
     def _calc_disc_rewards(self, amp_obs):
         with torch.no_grad():
             disc_logits = self._eval_disc(amp_obs)
-            prob = 1.0 / (1.0 + torch.exp(-disc_logits)) 
+            prob = 1.0 / (1.0 + torch.exp(-disc_logits))
             disc_r = -torch.log(torch.maximum(1 - prob, torch.tensor(0.0001, device=self.device)))
             disc_r *= self._disc_reward_scale
         return disc_r

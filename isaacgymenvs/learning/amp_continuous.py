@@ -130,7 +130,6 @@ class AMPAgent(common_agent.CommonAgent):
 
             self.game_rewards.update(self.current_rewards[done_indices])
             self.game_lengths.update(self.current_lengths[done_indices])
-            self.algo_observer.process_infos(infos, done_indices)
 
             not_dones = 1.0 - self.dones.float()
 
@@ -138,7 +137,7 @@ class AMPAgent(common_agent.CommonAgent):
             self.current_lengths = self.current_lengths * not_dones
 
             if (self.vec_env.env.viewer and (n == (self.horizon_length - 1))):
-                self._amp_debug(infos)
+                infos['episode']['disc_pred'],infos['episode']['disc_reward'] = self._amp_debug(infos)
 
         mb_fdones = self.experience_buffer.tensor_dict['dones'].float()
         mb_values = self.experience_buffer.tensor_dict['values']
@@ -158,6 +157,10 @@ class AMPAgent(common_agent.CommonAgent):
 
         for k, v in amp_rewards.items():
             batch_dict[k] = a2c_common.swap_and_flatten01(v)
+
+        #infos['episode']['mb_rewards'] = mb_rewards
+        #print(mb_rewards.shape)
+        self.algo_observer.process_infos(infos, done_indices)
 
         return batch_dict
 
@@ -559,5 +562,5 @@ class AMPAgent(common_agent.CommonAgent):
 
             disc_pred = disc_pred.detach().cpu().numpy()[0, 0]
             disc_reward = disc_reward.cpu().numpy()[0, 0]
-            print("disc_pred: ", disc_pred, disc_reward)
-        return
+            #print(f"disc_pred: {disc_pred} disc_reward: {disc_reward}")
+        return disc_pred, disc_reward
