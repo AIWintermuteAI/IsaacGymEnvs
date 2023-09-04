@@ -36,7 +36,7 @@ from gym import spaces
 from isaacgym import gymapi
 from isaacgym import gymtorch
 
-from isaacgymenvs.tasks.amp.humanoid_amp_base import HumanoidAMPBase, dof_to_obs
+from isaacgymenvs.tasks.amp.atlas_amp_base import AtlasAMPBase, dof_to_obs
 from isaacgymenvs.tasks.amp.utils_amp import gym_util
 from isaacgymenvs.tasks.amp.utils_amp.motion_lib import MotionLib
 
@@ -47,7 +47,7 @@ from isaacgymenvs.utils.torch_jit_utils import *
 NUM_AMP_OBS_PER_STEP = 107 #13 + 52 + 28 + 12 # [root_h, root_rot, root_vel, root_ang_vel, dof_pos, dof_vel, key_body_pos]
 
 
-class AtlasAMP(HumanoidAMPBase):
+class AtlasAMP(AtlasAMPBase):
 
     class StateInit(Enum):
         Default = 0
@@ -125,6 +125,7 @@ class AtlasAMP(HumanoidAMPBase):
         motion_times = motion_times.flatten()
         root_pos, root_rot, dof_pos, root_vel, root_ang_vel, dof_vel, key_pos \
                = self._motion_lib.get_motion_state(motion_ids, motion_times)
+        root_pos[..., :2] += 0.4
         root_states = torch.cat([root_pos, root_rot, root_vel, root_ang_vel], dim=-1)
         amp_obs_demo = build_amp_observations(root_states, dof_pos, dof_vel, key_pos,
                                       self._local_root_obs)
@@ -139,9 +140,11 @@ class AtlasAMP(HumanoidAMPBase):
 
 
     def _load_motion(self, motion_file):
+        translated_key_body_ids = np.vectorize(self.body_ids_map.get)(self._key_body_ids.cpu().numpy())
+
         self._motion_lib = MotionLib(motion_file=motion_file,
                                      num_dofs=self.num_dof,
-                                     key_body_ids=self._key_body_ids.cpu().numpy(),
+                                     key_body_ids=translated_key_body_ids,
                                      device=self.device)
         return
 
@@ -196,8 +199,16 @@ class AtlasAMP(HumanoidAMPBase):
         root_pos, root_rot, dof_pos, root_vel, root_ang_vel, dof_vel, key_pos \
                = self._motion_lib.get_motion_state(motion_ids, motion_times)
 
+        #self._set_env_state(env_ids=env_ids,
+        #                    root_pos=torch.FloatTensor([0, 0, 0.95]).to(self.device),
+        #                    root_rot=torch.FloatTensor([0, 0, 0, 1]).to(self.device),
+        #                    dof_pos=dof_pos,
+        #                    root_vel=torch.FloatTensor([0, 0, 0]).to(self.device),
+        #                    root_ang_vel=torch.FloatTensor([0, 0, 0]).to(self.device),
+        #                    dof_vel=dof_vel)
+
         self._set_env_state(env_ids=env_ids,
-                            root_pos=root_pos,
+                            root_pos=torch.FloatTensor([0, 0, 0.95]).to(self.device),
                             root_rot=root_rot,
                             dof_pos=dof_pos,
                             root_vel=root_vel,
