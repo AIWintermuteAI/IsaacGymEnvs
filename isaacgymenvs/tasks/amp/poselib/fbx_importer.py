@@ -29,22 +29,31 @@
 
 import os
 import json
+import sys
 
 from poselib.skeleton.skeleton3d import SkeletonTree, SkeletonState, SkeletonMotion
 from poselib.visualization.common import plot_skeleton_state, plot_skeleton_motion_interactive
 
-# source fbx file path
-fbx_file = "data/01_01_cmu.fbx"
+def main(fbx_file):
 
-# import fbx file - make sure to provide a valid joint name for root_joint
-motion = SkeletonMotion.from_fbx(
-    fbx_file_path=fbx_file,
-    root_joint="Hips",
-    fps=60
-)
+    # import fbx file - make sure to provide a valid joint name for root_joint
+    motion = SkeletonMotion.from_fbx(
+        fbx_file_path=fbx_file,
+        root_joint="Hips",
+        root_trans_index=0,
+        fps=60
+    )
 
-# save motion in npy format
-motion.to_file("data/01_01_cmu.npy")
+    # save motion in npy format
+    npy_filename = os.path.basename(fbx_file).split(".")[0] + ".npy"
+    motion.to_file(os.path.join("data", npy_filename))
 
-# visualize motion
-plot_skeleton_motion_interactive(motion)
+    # visualize motion
+    plot_skeleton_motion_interactive(motion)
+
+if __name__ == "__main__":
+    fbx_file = "data/16_11.fbx"
+    if len(sys.argv) > 1:
+        fbx_file = sys.argv[1]
+    print(fbx_file)
+    main(fbx_file)

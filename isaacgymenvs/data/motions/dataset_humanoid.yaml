@@ -1,0 +1,9 @@
+motions:
+  - file: "amp_humanoid_run_veer_left.npy"
+    weight: 0.25
+  - file: "amp_humanoid_run_veer_right.npy"
+    weight: 0.25
+  - file: "amp_humanoid_run.npy"
+    weight: 0.25
+  - file: "amp_humanoid_walk.npy"
+    weight: 0.25

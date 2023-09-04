@@ -892,6 +892,8 @@ class SkeletonState(Serializable):
             is_local=True,
         )
 
+        print(self.skeleton_tree)
+
         # STEP 1: Drop the irrelevant joints
         pairwise_translation = self._get_pairwise_average_translation()
         node_names = list(joint_mapping)

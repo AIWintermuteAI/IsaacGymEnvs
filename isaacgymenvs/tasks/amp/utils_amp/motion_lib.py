@@ -120,7 +120,7 @@ class MotionLib():
 
             root_vel[ids, :] = curr_motion.global_root_velocity[frame_idx0[ids]].numpy()
             root_ang_vel[ids, :] = curr_motion.global_root_angular_velocity[frame_idx0[ids]].numpy()
-            print(self._key_body_ids[np.newaxis, :])
+            #print(self._key_body_ids[np.newaxis, :])
             key_pos0[ids, :, :] = curr_motion.global_translation[frame_idx0[ids][:, np.newaxis], self._key_body_ids[np.newaxis, :]].numpy()
             key_pos1[ids, :, :] = curr_motion.global_translation[frame_idx1[ids][:, np.newaxis], self._key_body_ids[np.newaxis, :]].numpy()
 
