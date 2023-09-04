@@ -1,6 +1,15 @@
 # used to create the object
 name: AtlasAMP
 
+wandb_group: ''
+wandb_name: AtlasAMP
+wandb_entity: ''
+wandb_project: 'atlas'
+capture_video: True
+capture_video_freq: 2500
+capture_video_len: 100
+force_render: False
+
 physics_engine: ${..physics_engine}
 
 # if given, will override the device setting in gym.

@@ -411,12 +411,11 @@ class AtlasAMPBase(VecTask):
 
         return
 
-    def render(self):
+    def render(self, mode="rgb_array"):
         if self.viewer and self.camera_follow:
             self._update_camera()
 
-        super().render()
-        return
+        return super().render(mode)
 
     def _build_key_body_ids_tensor(self, env_ptr, actor_handle):
         body_ids = []
