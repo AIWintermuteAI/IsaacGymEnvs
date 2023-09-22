@@ -37,7 +37,6 @@ env:
   #motion_file: "amp_humanoid_walk.npy"
   #motion_file: "amp_humanoid_run.npy"
   #motion_file: "amp_humanoid_dance.npy"
-  #motion_file: "16_37_amp.npy"
   motion_file: "dataset_humanoid.yaml"
 
   # these motions should use hyperparameters from HumanoidAMPPPOLowGP.yaml
@@ -60,7 +59,7 @@ task:
     yaw: [-3.14, 3.14]    # min max [rad/s]
 
   learn:
-    terminalReward: 0.0
+    terminalReward: -0.5
     linearVelocityXYRewardScale: 1.0
     angularVelocityZRewardScale: 0.5
 

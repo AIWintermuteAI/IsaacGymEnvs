@@ -72,7 +72,6 @@ class HumanoidAMPBase(VecTask):
         self.cfg["env"]["numObservations"] = self.get_obs_size()
         self.cfg["env"]["numActions"] = self.get_action_size()
 
-        # TODO: Make this configurable from YAML file
         self.task_enabled = self.cfg["task"]["enable"]
 
         super().__init__(config=self.cfg, rl_device=rl_device, sim_device=sim_device, graphics_device_id=graphics_device_id, headless=headless, virtual_screen_capture=virtual_screen_capture, force_render=force_render)
@@ -80,6 +79,7 @@ class HumanoidAMPBase(VecTask):
         if self.task_enabled:
             # reward scales
             self.rew_scales = {}
+            self.rew_scales["termination"] = self.cfg["task"]["learn"]["terminalReward"]
             self.rew_scales["lin_vel_xy"] = self.cfg["task"]["learn"]["linearVelocityXYRewardScale"]
             self.rew_scales["ang_vel_z"] = self.cfg["task"]["learn"]["angularVelocityZRewardScale"]
 
@@ -344,9 +344,9 @@ class HumanoidAMPBase(VecTask):
             rew_lin_vel_xy = torch.exp(-lin_vel_error/0.25) * self.rew_scales["lin_vel_xy"]
             rew_ang_vel_z = torch.exp(-ang_vel_error/0.25) * self.rew_scales["ang_vel_z"]
 
-            total_reward = rew_lin_vel_xy + rew_ang_vel_z
+            self.rew_buf[:] = rew_lin_vel_xy + rew_ang_vel_z
 
-            self.rew_buf[:] += -1 * total_reward * ~self.timeout_buf
+            self.rew_buf[:] += self.rew_scales["termination"] * self.reset_buf * ~self.timeout_buf
 
             # log episode reward sums
             self.episode_sums["lin_vel_xy"] += rew_lin_vel_xy
