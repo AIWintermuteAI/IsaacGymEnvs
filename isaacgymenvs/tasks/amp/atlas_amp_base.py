@@ -40,7 +40,7 @@ from ..base.vec_task import VecTask
 
 DOF_BODY_IDS = [1, 2, 3, 4, 6, 7, 9, 10, 11, 12, 13, 14]
 DOF_OFFSETS = [0, 3, 6, 9, 10, 13, 14, 17, 18, 21, 24, 25, 28]
-NUM_OBS = 107 #13 + 52 + 28 + 12 # [root_h, root_rot, root_vel, root_ang_vel, dof_pos, dof_vel, key_body_pos]
+NUM_OBS = 110 #13 + 52 + 28 + 12 # [root_h, root_rot, root_vel, root_ang_vel, dof_pos, dof_vel, key_body_pos]
 NUM_ACTIONS = 30
 
 KEY_BODY_NAMES = ["r_hand", "l_hand", "r_foot", "l_foot"]
@@ -76,7 +76,23 @@ class AtlasAMPBase(VecTask):
         self.cfg["env"]["numObservations"] = self.get_obs_size()
         self.cfg["env"]["numActions"] = self.get_action_size()
 
+        self.task_enabled = self.cfg["task"]["enable"]
+
         super().__init__(config=self.cfg, rl_device=rl_device, sim_device=sim_device, graphics_device_id=graphics_device_id, headless=headless, virtual_screen_capture=virtual_screen_capture, force_render=force_render)
+
+        if self.task_enabled:
+            # reward scales
+            self.rew_scales = {}
+            self.rew_scales["termination"] = self.cfg["task"]["learn"]["terminalReward"]
+            self.rew_scales["lin_vel_xy"] = self.cfg["task"]["learn"]["linearVelocityXYRewardScale"]
+            self.rew_scales["ang_vel_z"] = self.cfg["task"]["learn"]["angularVelocityZRewardScale"]
+
+            #command ranges
+            self.command_x_range = self.cfg["task"]["randomCommandVelocityRanges"]["linear_x"]
+            #self.command_y_range = self.cfg["task"]["randomCommandVelocityRanges"]["linear_y"]
+            self.command_yaw_range = self.cfg["task"]["randomCommandVelocityRanges"]["yaw"]
+
+        self.commands = torch.zeros(self.num_envs, 4, dtype=torch.float, device=self.device, requires_grad=False) # x vel, y vel, yaw vel, heading
 
         dt = self.cfg["sim"]["dt"]
         self.dt = self.control_freq_inv * dt
@@ -125,6 +141,13 @@ class AtlasAMPBase(VecTask):
 
         self._terminate_buf = torch.ones(self.num_envs, device=self.device, dtype=torch.long)
 
+        self.max_episode_length_s = self.cfg["env"]["episodeLength"]
+        self.max_episode_length = int(self.max_episode_length_s/ self.dt + 0.5)
+
+        # reward episode sums
+        torch_zeros = lambda : torch.zeros(self.num_envs, dtype=torch.float, device=self.device, requires_grad=False)
+        self.episode_sums = {"lin_vel_xy": torch_zeros(), "ang_vel_z": torch_zeros(), "total_reward": torch_zeros()}
+
         if self.viewer != None:
             self._init_camera()
 
@@ -151,8 +174,20 @@ class AtlasAMPBase(VecTask):
 
     def reset_idx(self, env_ids):
         self._reset_actors(env_ids)
+
+        if self.task_enabled:
+            self.commands[env_ids, 0] = torch_rand_float(self.command_x_range[0], self.command_x_range[1], (len(env_ids), 1), device=self.device).squeeze()
+            #self.commands[env_ids, 1] = torch_rand_float(self.command_y_range[0], self.command_y_range[1], (len(env_ids), 1), device=self.device).squeeze()
+            self.commands[env_ids, 3] = torch_rand_float(self.command_yaw_range[0], self.command_yaw_range[1], (len(env_ids), 1), device=self.device).squeeze()
+            self.commands[env_ids] *= (torch.norm(self.commands[env_ids, :2], dim=1) > 0.25).unsqueeze(1) # set small commands to zero
+
         self._refresh_sim_tensors()
         self._compute_observations(env_ids)
+        # fill extras
+        self.extras["episode"] = {}
+        for key in self.episode_sums.keys():
+            self.extras["episode"]['rew_' + key] = torch.mean(self.episode_sums[key][env_ids]) / self.max_episode_length_s
+            self.episode_sums[key][env_ids] = 0.
         return
 
     def set_char_color(self, col):
@@ -191,8 +226,7 @@ class AtlasAMPBase(VecTask):
         asset_options.max_angular_velocity = 100.0
         asset_options.flip_visual_attachments = True
         asset_options.default_dof_drive_mode = gymapi.DOF_MODE_NONE
-        #asset_options.fix_base_link = True
-
+        asset_options.fix_base_link = False
         humanoid_asset = self.gym.load_asset(self.sim, asset_root, asset_file, asset_options)
 
         dof_props = self.gym.get_asset_dof_properties(humanoid_asset)
@@ -316,7 +350,28 @@ class AtlasAMPBase(VecTask):
         return
 
     def _compute_reward(self, actions):
-        self.rew_buf[:] = compute_humanoid_reward(self.obs_buf)
+
+        if self.task_enabled:
+            base_quat = self._root_states[:, 3:7]
+            base_lin_vel = quat_rotate_inverse(base_quat, self._root_states[:, 7:10])
+            base_ang_vel = quat_rotate_inverse(base_quat, self._root_states[:, 10:13])
+
+            lin_vel_error = torch.sum(torch.square(self.commands[:, :2] - base_lin_vel[:, :2]), dim=1)
+            ang_vel_error = torch.square(self.commands[:, 2] - base_ang_vel[:, 2])
+            rew_lin_vel_xy = torch.exp(-lin_vel_error/0.25) * self.rew_scales["lin_vel_xy"]
+            rew_ang_vel_z = torch.exp(-ang_vel_error/0.25) * self.rew_scales["ang_vel_z"]
+
+            self.rew_buf[:] = rew_lin_vel_xy + rew_ang_vel_z
+
+            self.rew_buf[:] += self.rew_scales["termination"] * self.reset_buf * ~self.timeout_buf
+
+            # log episode reward sums
+            self.episode_sums["lin_vel_xy"] += rew_lin_vel_xy
+            self.episode_sums["total_reward"] += self.rew_buf[:]
+            self.episode_sums["ang_vel_z"] += rew_ang_vel_z
+        else:
+            compute_humanoid_reward(self.obs_buf)
+
         return
 
     def _compute_reset(self):
@@ -337,12 +392,23 @@ class AtlasAMPBase(VecTask):
         return
 
     def _compute_observations(self, env_ids=None):
-        obs = self._compute_humanoid_obs(env_ids)
+        humanoid_obs = self._compute_humanoid_obs(env_ids)
+
+        if self.task_enabled:
+            base_quat = self._root_states[:, 3:7]
+            base_lin_vel = quat_rotate_inverse(base_quat, self._root_states[:, 7:10])
+            base_ang_vel = quat_rotate_inverse(base_quat, self._root_states[:, 10:13])
+
+            task_obs = torch.cat((self.commands[:, :3],), dim=-1)
+        else:
+            task_obs = torch.zeros_like((self.commands[:, :3]))
 
         if (env_ids is None):
-            self.obs_buf[:] = obs
+            #self.obs_buf[:] = obs
+            self.obs_buf[:] = torch.hstack([humanoid_obs, task_obs])
         else:
-            self.obs_buf[env_ids] = obs
+            #self.obs_buf[env_ids] = obs
+            self.obs_buf[env_ids] = torch.hstack([humanoid_obs, task_obs[[env_ids]]])
 
         return
 
@@ -400,8 +466,8 @@ class AtlasAMPBase(VecTask):
 
         self._refresh_sim_tensors()
         self._compute_observations()
-        self._compute_reward(self.actions)
         self._compute_reset()
+        self._compute_reward(self.actions)
 
         self.extras["terminate"] = self._terminate_buf
 

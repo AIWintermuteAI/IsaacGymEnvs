@@ -44,12 +44,12 @@ params:
   load_path: ${...checkpoint} # path to the checkpoint to load
 
   config:
-    name: ${resolve_default:HumanoidAMP,${....experiment}}
+    name: ${resolve_default:AtlasAMP,${....experiment}}
     full_experiment_name: ${.name}
     env_name: rlgpu
     ppo: True
     multi_gpu: False
-    mixed_precision: False
+    mixed_precision: True
     normalize_input: True
     normalize_value: True
     value_bootstrap: True
@@ -59,11 +59,11 @@ params:
     normalize_advantage: True
     gamma: 0.99
     tau: 0.95
-    learning_rate: 5e-5
-    lr_schedule: constant
+    learning_rate: 5e-5 # overwritten by adaptive lr_schedule
+    lr_schedule: adaptive
     kl_threshold: 0.008
     score_to_win: 20000
-    max_epochs: ${resolve_default:5000,${....max_iterations}}
+    max_epochs: ${resolve_default:1000,${....max_iterations}}
     save_best_after: 100
     save_frequency: 50
     print_stats: True
@@ -89,6 +89,13 @@ params:
     disc_reward_scale: 2
     disc_weight_decay: 0.0001
     normalize_amp_input: True
+    print_disc_prediction: True
 
-    task_reward_w: 0.0
-    disc_reward_w: 1.0
+    task_reward_w: 0.5
+    disc_reward_w: 0.5
+
+    player:
+      #render: True
+      deterministic: True
+      num_games: 256
+      print_stats: True

@@ -43,9 +43,7 @@ from isaacgymenvs.tasks.amp.utils_amp.motion_lib import MotionLib
 from isaacgym.torch_utils import *
 from isaacgymenvs.utils.torch_jit_utils import *
 
-
 NUM_AMP_OBS_PER_STEP = 107 #13 + 52 + 28 + 12 # [root_h, root_rot, root_vel, root_ang_vel, dof_pos, dof_vel, key_body_pos]
-
 
 class AtlasAMP(AtlasAMPBase):
 
@@ -70,7 +68,7 @@ class AtlasAMP(AtlasAMPBase):
         super().__init__(config=self.cfg, rl_device=rl_device, sim_device=sim_device, graphics_device_id=graphics_device_id, headless=headless, virtual_screen_capture=virtual_screen_capture, force_render=force_render)
 
         motion_file = cfg['env'].get('motion_file', "amp_humanoid_backflip.npy")
-        motion_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../assets/amp/motions/" + motion_file)
+        motion_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../data/motions/" + motion_file)
         self._load_motion(motion_file_path)
 
         self.num_amp_obs = self._num_amp_obs_steps * NUM_AMP_OBS_PER_STEP
@@ -93,6 +91,7 @@ class AtlasAMP(AtlasAMPBase):
 
         amp_obs_flat = self._amp_obs_buf.view(-1, self.get_num_amp_obs())
         self.extras["amp_obs"] = amp_obs_flat
+        self.extras["terminate"] = self._terminate_buf
 
         return
 
