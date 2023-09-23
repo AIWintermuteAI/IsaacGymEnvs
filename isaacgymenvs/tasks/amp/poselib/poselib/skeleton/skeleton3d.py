@@ -44,7 +44,7 @@ class SkeletonTree(Serializable):
     A skeleton tree gives a complete description of a rigid skeleton. It describes a tree structure
     over a list of nodes with their names indicated by strings. Each edge in the tree has a local
     translation associated with it which describes the distance between the two nodes that it
-    connects. 
+    connects.
 
     Basic Usage:
         >>> t = SkeletonTree.from_mjcf(SkeletonTree.__example_mjcf_path__)
@@ -107,6 +107,7 @@ class SkeletonTree(Serializable):
         :type local_translation: Tensor
         """
         ln, lp, ll = len(node_names), len(parent_indices), len(local_translation)
+        print(ln, lp, ll)
         assert len(set((ln, lp, ll))) == 1
         self._node_names = node_names
         self._parent_indices = parent_indices.long()
@@ -177,7 +178,7 @@ class SkeletonTree(Serializable):
         """
         Parses a mujoco xml scene description file and returns a Skeleton Tree.
         We use the model attribute at the root as the name of the tree.
-        
+
         :param path:
         :type path: string
         :return: The skeleton tree constructed from the mjcf file
@@ -213,6 +214,110 @@ class SkeletonTree(Serializable):
 
         _add_xml_node(xml_body_root, -1, 0)
 
+        print(node_names)
+        #print(link_parents)
+        print(parent_indices)
+        print(local_translation)
+
+        return cls(
+            node_names,
+            torch.from_numpy(np.array(parent_indices, dtype=np.int32)),
+            torch.from_numpy(np.array(local_translation, dtype=np.float32)),
+        )
+
+    @classmethod
+    def from_urdf(cls, path):
+        tree = ET.parse(path)
+        root = tree.getroot()
+
+        node_names = []
+        parent_indices = []
+        local_translation = []
+
+        # Dictionary to store the links' names and their corresponding parent names.
+        link_parents = OrderedDict()
+
+        def find_element_in_list(element, list_element):
+            try:
+                index_element = list_element.index(element)
+                return index_element
+            except ValueError:
+                return -1
+
+        #for elem in root.iter():
+        #    print(elem.tag, elem.attrib)
+
+        #for link_node in root.findall("origin"):
+        #    print(link_node.tag, link_node.attrib)
+
+        node_names.append("pelvis")
+
+        def return_children(root, parents):
+            children = []
+            for joint_node in root.findall("joint"):
+                #print(joint_node.tag, joint_node.attrib)
+                #print(joint_node.findall("parent")[0].attrib)
+                #print(joint_node.findall("child")[0].attrib)
+                child_link = joint_node.findall("child")[0].attrib["link"]
+                parent_link = joint_node.findall("parent")[0].attrib["link"]
+                if parent_link in parents:
+                    children.append(child_link)
+            print(children)
+            if len(children) > 0:
+                node_names.extend(children)
+                return return_children(root, children)
+            else:
+                return children
+
+        #def traverse(root, link):
+        return_children(root, node_names[0])
+        print(node_names)
+
+        # Iterate through all links in the URDF
+        for link_node in root.findall("link"):
+            #print(link_node.tag, link_node.attrib)
+            #print(link_node.find('inertial').find('origin').attrib["xyz"])
+            pos = np.fromstring(link_node.find('inertial').find('origin').attrib["xyz"], dtype=float, sep=" ")
+            #print(pos)
+            local_translation.append(pos)
+            #if link_node.attrib["name"] != "pelvis":
+            #    node_names.append(link_node.attrib["name"])
+
+        i = 0
+        for joint_node in root.findall("joint"):
+            #print(joint_node.tag, joint_node.attrib)
+            #print(joint_node.findall("parent")[0].attrib)
+            #print(joint_node.findall("child")[0].attrib)
+            child_link = joint_node.findall("child")[0].attrib["link"]
+            parent_link = joint_node.findall("parent")[0].attrib["link"]
+            link_parents[child_link] = [parent_link, 0]
+
+        link_parents["pelvis"] = ["root", -1]
+        #print(node_names)
+        #print(link_parents)
+
+        for name in node_names:
+            #print(link_parents[name])
+            link_parents[name][1] = find_element_in_list(link_parents[name][0], node_names)
+
+        #print(link_parents)
+
+        keys = list(link_parents.keys())
+        values = list(link_parents.values())
+        #print(values)
+        sorted_value_index = np.argsort([value[1] for value in values])
+        #print(sorted_value_index)
+        sorted_link_parents = {keys[i]: values[i] for i in sorted_value_index}
+        #print(sorted_link_parents)
+        #stop
+        # Compute parent indices based on link-parent relationships
+        parent_indices = [sorted_link_parents[name][1] for name in sorted_link_parents.keys()]
+        #node_names = list(sorted_link_parents.keys())
+
+        print(node_names)
+        print(parent_indices)
+        #print(local_translation)
+        #stop
         return cls(
             node_names,
             torch.from_numpy(np.array(parent_indices, dtype=np.int32)),
@@ -230,7 +335,7 @@ class SkeletonTree(Serializable):
 
     def index(self, node_name):
         """ get the index of the node
-        
+
         :param node_name: the name of the node
         :type node_name: string
         :rtype: int
@@ -272,6 +377,9 @@ class SkeletonTree(Serializable):
             if tb_node_index == -1:
                 new_parent_indices[new_node_index] = -1
             else:
+                print(new_node_indices)
+                print(self[tb_node_index])
+                print(self[node_index])
                 new_parent_indices[new_node_index] = new_node_indices[
                     self[tb_node_index]
                 ]
@@ -284,6 +392,7 @@ class SkeletonTree(Serializable):
         self, node_names: List[str], pairwise_translation=None
     ) -> "SkeletonTree":
         nodes_to_drop = list(filter(lambda x: x not in node_names, self))
+        print(nodes_to_drop)
         return self.drop_nodes_by_names(nodes_to_drop, pairwise_translation)
 
 
@@ -389,8 +498,8 @@ class SkeletonState(Serializable):
 
     @property
     def is_local(self):
-        """ is the rotation represented in local frame? 
-        
+        """ is the rotation represented in local frame?
+
         :rtype: bool
         """
         return self._is_local
@@ -401,24 +510,24 @@ class SkeletonState(Serializable):
 
     @property
     def num_joints(self):
-        """ number of joints in the skeleton tree 
-        
+        """ number of joints in the skeleton tree
+
         :rtype: int
         """
         return self.skeleton_tree.num_joints
 
     @property
     def skeleton_tree(self):
-        """ skeleton tree 
-        
+        """ skeleton tree
+
         :rtype: SkeletonTree
         """
         return self._skeleton_tree
 
     @property
     def root_translation(self):
-        """ root translation 
-        
+        """ root translation
+
         :rtype: Tensor
         """
         if not hasattr(self, "_root_translation"):
@@ -435,6 +544,7 @@ class SkeletonState(Serializable):
             global_transformation = []
             parent_indices = self.skeleton_tree.parent_indices.numpy()
             # global_transformation = local_transformation.identity_like()
+            print(self.skeleton_tree)
             for node_index in range(len(self.skeleton_tree)):
                 parent_index = parent_indices[node_index]
                 if parent_index == -1:
@@ -442,6 +552,9 @@ class SkeletonState(Serializable):
                         local_transformation[..., node_index, :]
                     )
                 else:
+                    print(len(global_transformation))
+                    print(parent_index)
+                    print(self.skeleton_tree[parent_index])
                     global_transformation.append(
                         transform_mul(
                             global_transformation[parent_index],
@@ -511,7 +624,7 @@ class SkeletonState(Serializable):
 
     @property
     def local_transformation(self):
-        """ local translation + local rotation. It describes the transformation from child frame to 
+        """ local translation + local rotation. It describes the transformation from child frame to
         parent frame given in the order of child nodes appeared in `.skeleton_tree.node_names` """
         if not hasattr(self, "_local_transformation"):
             self._local_transformation = transform_from_rotation_translation(
@@ -571,7 +684,7 @@ class SkeletonState(Serializable):
 
     @property
     def local_rotation_to_root(self):
-        """ The 3D rotation from joint frame to the root frame. It is equivalent to 
+        """ The 3D rotation from joint frame to the root frame. It is equivalent to
         The root_R_world * world_R_node """
         return (
             quat_inverse(self.global_root_rotation).unsqueeze(-1) * self.global_rotation
@@ -585,7 +698,7 @@ class SkeletonState(Serializable):
         right_hip_index,
         gaussian_filter_width=20,
     ):
-        """ Computes forward vector based on cross product of the up vector with 
+        """ Computes forward vector based on cross product of the up vector with
         average of the right->left shoulder and hip vectors """
         global_positions = self.global_translation
         # Perpendicular to the forward direction.
@@ -688,9 +801,9 @@ class SkeletonState(Serializable):
         )
 
     def local_repr(self):
-        """ 
+        """
         Convert the skeleton state into local representation. This will only affects the values of
-        .tensor. If the skeleton state already has `is_local=True`. This method will do nothing. 
+        .tensor. If the skeleton state already has `is_local=True`. This method will do nothing.
 
         :rtype: SkeletonState
         """
@@ -704,9 +817,9 @@ class SkeletonState(Serializable):
         )
 
     def global_repr(self):
-        """ 
+        """
         Convert the skeleton state into global representation. This will only affects the values of
-        .tensor. If the skeleton state already has `is_local=False`. This method will do nothing. 
+        .tensor. If the skeleton state already has `is_local=False`. This method will do nothing.
 
         :rtype: SkeletonState
         """
@@ -743,9 +856,9 @@ class SkeletonState(Serializable):
     def drop_nodes_by_names(
         self, node_names: List[str], estimate_local_translation_from_states: bool = True
     ) -> "SkeletonState":
-        """ 
-        Drop a list of nodes from the skeleton and re-compute the local rotation to match the 
-        original joint position as much as possible. 
+        """
+        Drop a list of nodes from the skeleton and re-compute the local rotation to match the
+        original joint position as much as possible.
 
         :param node_names: a list node names that specifies the nodes need to be dropped
         :type node_names: List of strings
@@ -766,9 +879,9 @@ class SkeletonState(Serializable):
     def keep_nodes_by_names(
         self, node_names: List[str], estimate_local_translation_from_states: bool = True
     ) -> "SkeletonState":
-        """ 
-        Keep a list of nodes and drop all other nodes from the skeleton and re-compute the local 
-        rotation to match the original joint position as much as possible. 
+        """
+        Keep a list of nodes and drop all other nodes from the skeleton and re-compute the local
+        rotation to match the original joint position as much as possible.
 
         :param node_names: a list node names that specifies the nodes need to be dropped
         :type node_names: List of strings
@@ -823,7 +936,7 @@ class SkeletonState(Serializable):
         scale_to_target_skeleton: float,
         z_up: bool = True,
     ) -> "SkeletonState":
-        """ 
+        """
         Retarget the skeleton state to a target skeleton tree. This is a naive retarget
         implementation with rough approximations. The function follows the procedures below.
 
@@ -831,41 +944,41 @@ class SkeletonState(Serializable):
             1. Drop the joints from the source (self) that do not belong to the joint mapping\
             with an implementation that is similar to "keep_nodes_by_names()" - take a\
             look at the function doc for more details (same for source_tpose)
-            
+
             2. Rotate the source state and the source tpose by "rotation_to_target_skeleton"\
             to align the source with the target orientation
-            
+
             3. Extract the root translation and normalize it to match the scale of the target\
             skeleton
-            
+
             4. Extract the global rotation from source state relative to source tpose and\
             re-apply the relative rotation to the target tpose to construct the global\
             rotation after retargetting
-            
+
             5. Combine the computed global rotation and the root translation from 3 and 4 to\
             complete the retargeting.
-            
+
             6. Make feet on the ground (global translation z)
 
         :param joint_mapping: a dictionary of that maps the joint node from the source skeleton to \
         the target skeleton
         :type joint_mapping: Dict[str, str]
-        
+
         :param source_tpose_local_rotation: the local rotation of the source skeleton
         :type source_tpose_local_rotation: Tensor
-        
+
         :param source_tpose_root_translation: the root translation of the source tpose
         :type source_tpose_root_translation: np.ndarray
-        
+
         :param target_skeleton_tree: the target skeleton tree
         :type target_skeleton_tree: SkeletonTree
-        
+
         :param target_tpose_local_rotation: the local rotation of the target skeleton
         :type target_tpose_local_rotation: Tensor
-        
+
         :param target_tpose_root_translation: the root translation of the target tpose
         :type target_tpose_root_translation: Tensor
-        
+
         :param rotation_to_target_skeleton: the rotation that needs to be applied to the source\
         skeleton to align with the target skeleton. Essentially the rotation is t_R_s, where t is\
         the frame of reference of the target skeleton and s is the frame of reference of the source\
@@ -985,20 +1098,20 @@ class SkeletonState(Serializable):
         rotation_to_target_skeleton,
         scale_to_target_skeleton: float,
     ) -> "SkeletonState":
-        """ 
+        """
         Retarget the skeleton state to a target skeleton tree. This is a naive retarget
         implementation with rough approximations. See the method `retarget_to()` for more information
 
         :param joint_mapping: a dictionary of that maps the joint node from the source skeleton to \
         the target skeleton
         :type joint_mapping: Dict[str, str]
-        
+
         :param source_tpose: t-pose of the source skeleton
         :type source_tpose: SkeletonState
-        
+
         :param target_tpose: t-pose of the target skeleton
         :type target_tpose: SkeletonState
-        
+
         :param rotation_to_target_skeleton: the rotation that needs to be applied to the source\
         skeleton to align with the target skeleton. Essentially the rotation is t_R_s, where t is\
         the frame of reference of the target skeleton and s is the frame of reference of the source\
@@ -1093,7 +1206,7 @@ class SkeletonMotion(SkeletonState):
         Construct a skeleton motion from a skeleton state vector, global velocity and angular
         velocity at each joint.
 
-        :param skeleton_tree: the skeleton tree that the motion is based on 
+        :param skeleton_tree: the skeleton tree that the motion is based on
         :type skeleton_tree: SkeletonTree
         :param state_vector: the state vector from the skeleton state by `.tensor`
         :type state_vector: Tensor
@@ -1124,7 +1237,7 @@ class SkeletonMotion(SkeletonState):
         Construct a skeleton motion from a skeleton state. The velocities are estimated using second
         order gaussian filter along the last axis. The skeleton state must have at least .dim >= 1
 
-        :param skeleton_state: the skeleton state that the motion is based on 
+        :param skeleton_state: the skeleton state that the motion is based on
         :type skeleton_state: SkeletonState
         :param fps: number of frames per second
         :type fps: int
@@ -1279,7 +1392,7 @@ class SkeletonMotion(SkeletonState):
         """
         Crop the motion along its last axis. This is equivalent to performing a slicing on the
         object with [..., start: end: skip_every] where skip_every = old_fps / fps. Note that the
-        new fps provided must be a factor of the original fps. 
+        new fps provided must be a factor of the original fps.
 
         :param start: the beginning frame index
         :type start: int
@@ -1322,7 +1435,7 @@ class SkeletonMotion(SkeletonState):
         scale_to_target_skeleton: float,
         z_up: bool = True,
     ) -> "SkeletonMotion":
-        """ 
+        """
         Same as the one in :class:`SkeletonState`. This method discards all velocity information before
         retargeting and re-estimate the velocity after the retargeting. The same fps is used in the
         new retargetted motion.
@@ -1330,22 +1443,22 @@ class SkeletonMotion(SkeletonState):
         :param joint_mapping: a dictionary of that maps the joint node from the source skeleton to \
         the target skeleton
         :type joint_mapping: Dict[str, str]
-        
+
         :param source_tpose_local_rotation: the local rotation of the source skeleton
         :type source_tpose_local_rotation: Tensor
-        
+
         :param source_tpose_root_translation: the root translation of the source tpose
         :type source_tpose_root_translation: np.ndarray
-        
+
         :param target_skeleton_tree: the target skeleton tree
         :type target_skeleton_tree: SkeletonTree
-        
+
         :param target_tpose_local_rotation: the local rotation of the target skeleton
         :type target_tpose_local_rotation: Tensor
-        
+
         :param target_tpose_root_translation: the root translation of the target tpose
         :type target_tpose_root_translation: Tensor
-        
+
         :param rotation_to_target_skeleton: the rotation that needs to be applied to the source\
         skeleton to align with the target skeleton. Essentially the rotation is t_R_s, where t is\
         the frame of reference of the target skeleton and s is the frame of reference of the source\
@@ -1381,7 +1494,7 @@ class SkeletonMotion(SkeletonState):
         scale_to_target_skeleton: float,
         z_up: bool = True,
     ) -> "SkeletonMotion":
-        """ 
+        """
         Same as the one in :class:`SkeletonState`. This method discards all velocity information before
         retargeting and re-estimate the velocity after the retargeting. The same fps is used in the
         new retargetted motion.
@@ -1389,13 +1502,13 @@ class SkeletonMotion(SkeletonState):
         :param joint_mapping: a dictionary of that maps the joint node from the source skeleton to \
         the target skeleton
         :type joint_mapping: Dict[str, str]
-        
+
         :param source_tpose: t-pose of the source skeleton
         :type source_tpose: SkeletonState
-        
+
         :param target_tpose: t-pose of the target skeleton
         :type target_tpose: SkeletonState
-        
+
         :param rotation_to_target_skeleton: the rotation that needs to be applied to the source\
         skeleton to align with the target skeleton. Essentially the rotation is t_R_s, where t is\
         the frame of reference of the target skeleton and s is the frame of reference of the source\

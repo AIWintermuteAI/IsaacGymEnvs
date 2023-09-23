@@ -27,6 +27,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import sys
+import os
 from poselib.skeleton.skeleton3d import SkeletonTree, SkeletonState
 from poselib.visualization.common import plot_skeleton_state
 
@@ -34,19 +35,22 @@ def main(file_path):
 
     # load in file and save zero rotation pose in npy format
     ext = file_path.split(".")[-1]
-    if ext == ".xml":
+
+    if ext == "xml":
         skeleton = SkeletonTree.from_mjcf(file_path)
-    elif ext == ".urdf":
-        skeleton = SkeletonTree.from_urdf(file_path)    
+    elif ext == "urdf":
+        skeleton = SkeletonTree.from_urdf(file_path)
+
     zero_pose = SkeletonState.zero_pose(skeleton)
 
-    zero_pose.to_file("data/nv_humanoid.npy")
+    output_file = os.path.join("data", os.path.basename(file_path).split(".")[0] + ".npy")
+    zero_pose.to_file(output_file)
 
     # visualize zero rotation pose
     plot_skeleton_state(zero_pose)
 
 if __name__ == "__main__":
-    file_path = "../../../../assets/mjcf/nv_humanoid.xml"
+    file_path = "../../../../assets/mjcf/amp_humanoid.xml"
     if len(sys.argv) > 1:
         file_path = sys.argv[1]
     main(file_path)
