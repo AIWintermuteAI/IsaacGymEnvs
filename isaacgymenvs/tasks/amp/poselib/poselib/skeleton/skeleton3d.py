@@ -237,6 +237,9 @@ class SkeletonTree(Serializable):
         # Dictionary to store the links' names and their corresponding parent names.
         link_parents = OrderedDict()
 
+        link_parents["pelvis"] = "root"
+        node_names.append("pelvis")
+
         def find_element_in_list(element, list_element):
             try:
                 index_element = list_element.index(element)
@@ -244,13 +247,18 @@ class SkeletonTree(Serializable):
             except ValueError:
                 return -1
 
-        #for elem in root.iter():
-        #    print(elem.tag, elem.attrib)
-
-        #for link_node in root.findall("origin"):
-        #    print(link_node.tag, link_node.attrib)
-
-        node_names.append("pelvis")
+        def find_translation(root, link):
+            # Iterate through all links in the URDF
+            for link_node in root.findall("link"):
+                #print(link_node.tag, link_node.attrib)
+                #print(link_node.find('inertial').find('origin').attrib["xyz"])
+                pos = np.zeros((1,3))
+                #print(link_node.attrib["name"], link)
+                if link_node.attrib["name"] == link:
+                    pos = np.fromstring(link_node.find('inertial').find('origin').attrib["xyz"], dtype=float, sep=" ")
+                    #print(pos)
+                    break
+            return pos
 
         def return_children(root, parents):
             children = []
@@ -261,8 +269,10 @@ class SkeletonTree(Serializable):
                 child_link = joint_node.findall("child")[0].attrib["link"]
                 parent_link = joint_node.findall("parent")[0].attrib["link"]
                 if parent_link in parents:
+                    link_parents[child_link] = parent_link
                     children.append(child_link)
-            print(children)
+                    local_translation.append(find_translation(root, child_link))
+            #print(children)
             if len(children) > 0:
                 node_names.extend(children)
                 return return_children(root, children)
@@ -271,52 +281,50 @@ class SkeletonTree(Serializable):
 
         #def traverse(root, link):
         return_children(root, node_names[0])
-        print(node_names)
-
+        #print(node_names)
+        #print(local_translation)
+        #stop
         # Iterate through all links in the URDF
-        for link_node in root.findall("link"):
+        #for link_node in root.findall("link"):
             #print(link_node.tag, link_node.attrib)
             #print(link_node.find('inertial').find('origin').attrib["xyz"])
-            pos = np.fromstring(link_node.find('inertial').find('origin').attrib["xyz"], dtype=float, sep=" ")
+            #pos = np.fromstring(link_node.find('inertial').find('origin').attrib["xyz"], dtype=float, sep=" ")
             #print(pos)
-            local_translation.append(pos)
+            #local_translation.append(pos)
             #if link_node.attrib["name"] != "pelvis":
             #    node_names.append(link_node.attrib["name"])
 
-        i = 0
-        for joint_node in root.findall("joint"):
+        #i = 0
+        #for joint_node in root.findall("joint"):
             #print(joint_node.tag, joint_node.attrib)
             #print(joint_node.findall("parent")[0].attrib)
             #print(joint_node.findall("child")[0].attrib)
-            child_link = joint_node.findall("child")[0].attrib["link"]
-            parent_link = joint_node.findall("parent")[0].attrib["link"]
-            link_parents[child_link] = [parent_link, 0]
+            #child_link = joint_node.findall("child")[0].attrib["link"]
+            #parent_link = joint_node.findall("parent")[0].attrib["link"]
+            #link_parents[child_link] = [parent_link, 0]
 
-        link_parents["pelvis"] = ["root", -1]
-        #print(node_names)
-        #print(link_parents)
+        #link_parents["pelvis"] = ["root", -1]
 
-        for name in node_names:
-            #print(link_parents[name])
-            link_parents[name][1] = find_element_in_list(link_parents[name][0], node_names)
+        #for name in node_names:
+        #    print(link_parents[name])
+        #    link_parents[name][1] = find_element_in_list(link_parents[name][0], node_names)
 
-        #print(link_parents)
-
-        keys = list(link_parents.keys())
-        values = list(link_parents.values())
+        #keys = list(link_parents.keys())
+        #values = list(link_parents.values())
         #print(values)
-        sorted_value_index = np.argsort([value[1] for value in values])
+        #sorted_value_index = np.argsort([value[1] for value in values])
         #print(sorted_value_index)
-        sorted_link_parents = {keys[i]: values[i] for i in sorted_value_index}
+        #sorted_link_parents = {keys[i]: values[i] for i in sorted_value_index}
         #print(sorted_link_parents)
         #stop
         # Compute parent indices based on link-parent relationships
-        parent_indices = [sorted_link_parents[name][1] for name in sorted_link_parents.keys()]
+        #parent_indices = [link_parents[name] for name in link_parents.keys()]
+        parent_indices = [find_element_in_list(link_parents[name], node_names) for name in node_names]
         #node_names = list(sorted_link_parents.keys())
 
         print(node_names)
         print(parent_indices)
-        #print(local_translation)
+        print(local_translation)
         #stop
         return cls(
             node_names,
@@ -377,9 +385,9 @@ class SkeletonTree(Serializable):
             if tb_node_index == -1:
                 new_parent_indices[new_node_index] = -1
             else:
-                print(new_node_indices)
-                print(self[tb_node_index])
-                print(self[node_index])
+                #print(new_node_indices)
+                #print(self[tb_node_index])
+                #print(self[node_index])
                 new_parent_indices[new_node_index] = new_node_indices[
                     self[tb_node_index]
                 ]
@@ -552,9 +560,9 @@ class SkeletonState(Serializable):
                         local_transformation[..., node_index, :]
                     )
                 else:
-                    print(len(global_transformation))
-                    print(parent_index)
-                    print(self.skeleton_tree[parent_index])
+                    #print(len(global_transformation))
+                    #print(parent_index)
+                    #print(self.skeleton_tree[parent_index])
                     global_transformation.append(
                         transform_mul(
                             global_transformation[parent_index],
