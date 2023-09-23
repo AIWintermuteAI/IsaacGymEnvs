@@ -237,9 +237,6 @@ class SkeletonTree(Serializable):
         # Dictionary to store the links' names and their corresponding parent names.
         link_parents = OrderedDict()
 
-        link_parents["pelvis"] = "root"
-        node_names.append("pelvis")
-
         def find_element_in_list(element, list_element):
             try:
                 index_element = list_element.index(element)
@@ -250,10 +247,7 @@ class SkeletonTree(Serializable):
         def find_translation(root, link):
             # Iterate through all links in the URDF
             for link_node in root.findall("link"):
-                #print(link_node.tag, link_node.attrib)
-                #print(link_node.find('inertial').find('origin').attrib["xyz"])
                 pos = np.zeros((1,3))
-                #print(link_node.attrib["name"], link)
                 if link_node.attrib["name"] == link:
                     pos = np.fromstring(link_node.find('inertial').find('origin').attrib["xyz"], dtype=float, sep=" ")
                     #print(pos)
@@ -263,9 +257,6 @@ class SkeletonTree(Serializable):
         def return_children(root, parents):
             children = []
             for joint_node in root.findall("joint"):
-                #print(joint_node.tag, joint_node.attrib)
-                #print(joint_node.findall("parent")[0].attrib)
-                #print(joint_node.findall("child")[0].attrib)
                 child_link = joint_node.findall("child")[0].attrib["link"]
                 parent_link = joint_node.findall("parent")[0].attrib["link"]
                 if parent_link in parents:
@@ -279,48 +270,13 @@ class SkeletonTree(Serializable):
             else:
                 return children
 
-        #def traverse(root, link):
+        link_parents["pelvis"] = "root"
+        node_names.append("pelvis")
+        local_translation.append(find_translation(root, "pelvis"))
+
         return_children(root, node_names[0])
-        #print(node_names)
-        #print(local_translation)
-        #stop
-        # Iterate through all links in the URDF
-        #for link_node in root.findall("link"):
-            #print(link_node.tag, link_node.attrib)
-            #print(link_node.find('inertial').find('origin').attrib["xyz"])
-            #pos = np.fromstring(link_node.find('inertial').find('origin').attrib["xyz"], dtype=float, sep=" ")
-            #print(pos)
-            #local_translation.append(pos)
-            #if link_node.attrib["name"] != "pelvis":
-            #    node_names.append(link_node.attrib["name"])
 
-        #i = 0
-        #for joint_node in root.findall("joint"):
-            #print(joint_node.tag, joint_node.attrib)
-            #print(joint_node.findall("parent")[0].attrib)
-            #print(joint_node.findall("child")[0].attrib)
-            #child_link = joint_node.findall("child")[0].attrib["link"]
-            #parent_link = joint_node.findall("parent")[0].attrib["link"]
-            #link_parents[child_link] = [parent_link, 0]
-
-        #link_parents["pelvis"] = ["root", -1]
-
-        #for name in node_names:
-        #    print(link_parents[name])
-        #    link_parents[name][1] = find_element_in_list(link_parents[name][0], node_names)
-
-        #keys = list(link_parents.keys())
-        #values = list(link_parents.values())
-        #print(values)
-        #sorted_value_index = np.argsort([value[1] for value in values])
-        #print(sorted_value_index)
-        #sorted_link_parents = {keys[i]: values[i] for i in sorted_value_index}
-        #print(sorted_link_parents)
-        #stop
-        # Compute parent indices based on link-parent relationships
-        #parent_indices = [link_parents[name] for name in link_parents.keys()]
         parent_indices = [find_element_in_list(link_parents[name], node_names) for name in node_names]
-        #node_names = list(sorted_link_parents.keys())
 
         print(node_names)
         print(parent_indices)
