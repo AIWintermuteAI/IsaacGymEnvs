@@ -107,7 +107,7 @@ class SkeletonTree(Serializable):
         :type local_translation: Tensor
         """
         ln, lp, ll = len(node_names), len(parent_indices), len(local_translation)
-        print(ln, lp, ll)
+        #print(ln, lp, ll)
         assert len(set((ln, lp, ll))) == 1
         self._node_names = node_names
         self._parent_indices = parent_indices.long()
@@ -214,10 +214,10 @@ class SkeletonTree(Serializable):
 
         _add_xml_node(xml_body_root, -1, 0)
 
-        print(node_names)
+        #print(node_names)
         #print(link_parents)
-        print(parent_indices)
-        print(local_translation)
+        #print(parent_indices)
+        #print(local_translation)
 
         return cls(
             node_names,
@@ -234,6 +234,24 @@ class SkeletonTree(Serializable):
         parent_indices = []
         local_translation = []
 
+        joint_mapping = {
+            "Hips": "pelvis",
+            "LeftHip": "l_uleg",
+            "LeftAnkle": "l_lleg",
+            "LeftToe": "l_foot",
+            "RightHip": "r_uleg",
+            "RightAnkle": "r_lleg",
+            "RightToe": "r_foot",
+            "Chest": "mtorso",
+            "Head": "head",
+            "LeftShoulder": "l_uarm",
+            "LeftElbow": "l_ufarm",
+            "lhand": "l_hand",
+            "RightShoulder": "r_uarm",
+            "RightElbow": "r_ufarm",
+            "rhand": "r_hand"
+        }
+
         # Dictionary to store the links' names and their corresponding parent names.
         link_parents = OrderedDict()
 
@@ -247,9 +265,12 @@ class SkeletonTree(Serializable):
         def find_translation(root, link):
             # Iterate through all links in the URDF
             for link_node in root.findall("link"):
-                pos = np.zeros((1,3))
+                pos = np.zeros((3))
                 if link_node.attrib["name"] == link:
-                    pos = np.fromstring(link_node.find('inertial').find('origin').attrib["xyz"], dtype=float, sep=" ")
+                    try:
+                        pos = np.fromstring(link_node.find('inertial').find('origin').attrib["xyz"], dtype=float, sep=" ")
+                    except Exception as e:
+                        print(e)
                     #print(pos)
                     break
             return pos
@@ -263,7 +284,6 @@ class SkeletonTree(Serializable):
                     link_parents[child_link] = parent_link
                     children.append(child_link)
                     local_translation.append(find_translation(root, child_link))
-            #print(children)
             if len(children) > 0:
                 node_names.extend(children)
                 return return_children(root, children)
@@ -278,7 +298,13 @@ class SkeletonTree(Serializable):
 
         parent_indices = [find_element_in_list(link_parents[name], node_names) for name in node_names]
 
+        DOF_OFFSETS = [find_element_in_list(name, node_names) for name in list(joint_mapping.values())]
+
         print(node_names)
+        print(link_parents)
+        #print(sorted(DOF_OFFSETS))
+        for name, i in zip(list(joint_mapping.values()), sorted(DOF_OFFSETS)):
+            print(name, i)
         print(parent_indices)
         print(local_translation)
         #stop
@@ -508,7 +534,7 @@ class SkeletonState(Serializable):
             global_transformation = []
             parent_indices = self.skeleton_tree.parent_indices.numpy()
             # global_transformation = local_transformation.identity_like()
-            print(self.skeleton_tree)
+            #print(self.skeleton_tree)
             for node_index in range(len(self.skeleton_tree)):
                 parent_index = parent_indices[node_index]
                 if parent_index == -1:
@@ -969,7 +995,7 @@ class SkeletonState(Serializable):
             is_local=True,
         )
 
-        print(self.skeleton_tree)
+        #print(joint_mapping)
 
         # STEP 1: Drop the irrelevant joints
         pairwise_translation = self._get_pairwise_average_translation()
@@ -977,7 +1003,7 @@ class SkeletonState(Serializable):
         new_skeleton_tree = self.skeleton_tree.keep_nodes_by_names(
             node_names, pairwise_translation
         )
-
+        #print(new_skeleton_tree)
         # TODO: combine the following steps before STEP 3
         source_tpose = source_tpose._transfer_to(new_skeleton_tree)
         source_state = self._transfer_to(new_skeleton_tree)
