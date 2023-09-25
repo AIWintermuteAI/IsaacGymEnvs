@@ -43,6 +43,7 @@ from isaacgymenvs.tasks.amp.utils_amp.motion_lib import MotionLib
 from isaacgym.torch_utils import *
 from isaacgymenvs.utils.torch_jit_utils import *
 
+from isaacgymenvs.tasks.amp.humanoid_amp_base import DOF_BODY_IDS, DOF_OFFSETS
 
 NUM_AMP_OBS_PER_STEP = 13 + 52 + 28 + 12 # [root_h, root_rot, root_vel, root_ang_vel, dof_pos, dof_vel, key_body_pos]
 
@@ -143,7 +144,9 @@ class HumanoidAMP(HumanoidAMPBase):
         self._motion_lib = MotionLib(motion_file=motion_file,
                                      num_dofs=self.num_dof,
                                      key_body_ids=self._key_body_ids.cpu().numpy(),
-                                     device=self.device)
+                                     device=self.device,
+                                     body_ids=DOF_BODY_IDS,
+                                     dof_offsets=DOF_OFFSETS)
         return
 
     def reset_idx(self, env_ids):

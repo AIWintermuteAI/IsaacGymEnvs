@@ -615,6 +615,7 @@ def compute_humanoid_reset(reset_buf, progress_buf, contact_buf, contact_body_id
         fall_contact = torch.any(fall_contact, dim=-1)
 
         body_height = rigid_body_pos[..., 2]
+        print(body_height[0])
         fall_height = body_height < termination_height
         fall_height[:, contact_body_ids] = False
         fall_height = torch.any(fall_height, dim=-1)
