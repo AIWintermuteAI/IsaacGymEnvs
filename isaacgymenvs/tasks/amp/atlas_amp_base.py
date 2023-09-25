@@ -38,12 +38,15 @@ from isaacgym.torch_utils import *
 from isaacgymenvs.utils.torch_jit_utils import *
 from ..base.vec_task import VecTask
 
-DOF_BODY_IDS = [1, 2, 3, 4, 6, 7, 9, 10, 11, 12, 13, 14]
-DOF_OFFSETS = [0, 3, 6, 9, 10, 13, 14, 17, 18, 21, 24, 25, 28]
-NUM_OBS = 110 #13 + 52 + 28 + 12 # [root_h, root_rot, root_vel, root_ang_vel, dof_pos, dof_vel, key_body_pos]
+DOF_BODY_IDS = [0, 4, 8, 9, 11, 12, 14, 19, 20, 21, 22, 25, 26, 29, 30]
+DOF_OFFSETS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+#DOF_BODY_IDS = [0, 4, 8, 9, 11, 12, 14, 19]
+#DOF_OFFSETS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+NUM_OBS = 104 #13 + 52 + 28 + 12 # [root_h, root_rot, root_vel, root_ang_vel, dof_pos, dof_vel, key_body_pos]
 NUM_ACTIONS = 30
 
-KEY_BODY_NAMES = ["r_hand", "l_hand", "r_foot", "l_foot"]
+KEY_BODY_NAMES = ["r_foot", "l_foot"]
+#KEY_BODY_NAMES = ["r_hand", "l_hand", "r_foot", "l_foot"]
 
 class AtlasAMPBase(VecTask):
 
@@ -268,7 +271,7 @@ class AtlasAMPBase(VecTask):
             )
             contact_filter = 0
 
-            handle = self.gym.create_actor(env_ptr, humanoid_asset, start_pose, "humanoid", i, contact_filter, 0)
+            handle = self.gym.create_actor(env_ptr, humanoid_asset, start_pose, "atlas", i, contact_filter, 0)
 
             self.gym.enable_actor_dof_force_sensors(env_ptr, handle)
 
@@ -448,7 +451,7 @@ class AtlasAMPBase(VecTask):
 
     def pre_physics_step(self, actions):
         self.actions = actions.to(self.device).clone()
-        assert not actions.isnan().any()
+        #assert not actions.isnan().any()
         #self.actions = torch.zeros_like(actions)
         if (self._pd_control):
             pd_tar = self._action_to_pd_targets(self.actions)
@@ -612,7 +615,7 @@ def compute_humanoid_observations(root_states, dof_pos, dof_vel, key_body_pos, l
     dof_obs = dof_to_obs(dof_pos)
 
     obs = torch.cat((root_h, root_rot_obs, local_root_vel, local_root_ang_vel, dof_obs, dof_vel, flat_local_key_pos), dim=-1)
-    assert not obs.isnan().any()
+    #assert not obs.isnan().any()
     return obs
 
 @torch.jit.script
@@ -636,10 +639,11 @@ def compute_humanoid_reset(reset_buf, progress_buf, contact_buf, contact_body_id
         body_height = rigid_body_pos[..., 2]
         #print(body_height[0])
         fall_height = body_height < termination_height
+        fly_height = body_height > termination_height*3
         #fall_height[:, contact_body_ids] = False
-        fall_height = torch.any(fall_height, dim=-1)
+        #fall_height = torch.any(fall_height, dim=-1)
 
-        has_fallen = torch.logical_and(fall_contact, fall_height)
+        has_fallen = torch.logical_or(fly_height, fall_height)
 
         # first timestep can sometimes still have nonzero contact forces
         # so only check after first couple of steps

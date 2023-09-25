@@ -35,14 +35,15 @@ from ..poselib.poselib.core.rotation3d import *
 from isaacgym.torch_utils import *
 from isaacgymenvs.utils.torch_jit_utils import *
 
-from isaacgymenvs.tasks.amp.humanoid_amp_base import DOF_BODY_IDS, DOF_OFFSETS
-
-
 class MotionLib():
-    def __init__(self, motion_file, num_dofs, key_body_ids, device):
+    def __init__(self, motion_file, num_dofs, key_body_ids, device, body_ids, dof_offsets):
         self._num_dof = num_dofs
         self._key_body_ids = key_body_ids
         self._device = device
+
+        self.body_ids = body_ids
+        self.dof_offsets = dof_offsets
+
         self._load_motions(motion_file)
 
         self.motion_ids = torch.arange(len(self._motions), dtype=torch.long, device=self._device)
@@ -263,16 +264,16 @@ class MotionLib():
         return dof_vels
 
     def _local_rotation_to_dof(self, local_rot):
-        body_ids = DOF_BODY_IDS
-        dof_offsets = DOF_OFFSETS
+        #body_ids = DOF_BODY_IDS
+        #dof_offsets = DOF_OFFSETS
 
         n = local_rot.shape[0]
         dof_pos = torch.zeros((n, self._num_dof), dtype=torch.float, device=self._device)
 
-        for j in range(len(body_ids)):
-            body_id = body_ids[j]
-            joint_offset = dof_offsets[j]
-            joint_size = dof_offsets[j + 1] - joint_offset
+        for j in range(len(self.body_ids)):
+            body_id = self.body_ids[j]
+            joint_offset = self.dof_offsets[j]
+            joint_size = self.dof_offsets[j + 1] - joint_offset
 
             if (joint_size == 3):
                 joint_q = local_rot[:, body_id]
@@ -293,8 +294,8 @@ class MotionLib():
         return dof_pos
 
     def _local_rotation_to_dof_vel(self, local_rot0, local_rot1, dt):
-        body_ids = DOF_BODY_IDS
-        dof_offsets = DOF_OFFSETS
+        #body_ids = DOF_BODY_IDS
+        #dof_offsets = DOF_OFFSETS
 
         dof_vel = np.zeros([self._num_dof])
 
@@ -303,11 +304,12 @@ class MotionLib():
         local_vel = diff_axis * diff_angle.unsqueeze(-1) / dt
         local_vel = local_vel.numpy()
 
-        for j in range(len(body_ids)):
-            body_id = body_ids[j]
-            joint_offset = dof_offsets[j]
-            joint_size = dof_offsets[j + 1] - joint_offset
-
+        for j in range(len(self.body_ids)):
+            body_id = self.body_ids[j]
+            joint_offset = self.dof_offsets[j]
+            #print(dof_offsets[j])
+            joint_size = self.dof_offsets[j + 1] - joint_offset
+            #print(dof_offsets[j])
             if (joint_size == 3):
                 joint_vel = local_vel[body_id]
                 dof_vel[joint_offset:(joint_offset + joint_size)] = joint_vel
