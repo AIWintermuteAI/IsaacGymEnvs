@@ -38,10 +38,10 @@ from isaacgym.torch_utils import *
 from isaacgymenvs.utils.torch_jit_utils import *
 from ..base.vec_task import VecTask
 
-DOF_BODY_IDS = [0, 4, 8, 9, 11, 12, 14, 19, 20, 21, 22, 25, 26, 29, 30]
-DOF_OFFSETS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-#DOF_BODY_IDS = [0, 4, 8, 9, 11, 12, 14, 19]
-#DOF_OFFSETS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+#DOF_BODY_IDS = [0, 4, 8, 9, 11, 12, 14, 19, 20, 21, 22, 25, 26, 29, 30]
+#DOF_OFFSETS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+DOF_BODY_IDS = [0, 4, 8, 9, 11, 12, 14, 19]
+DOF_OFFSETS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 NUM_OBS = 104 #13 + 52 + 28 + 12 # [root_h, root_rot, root_vel, root_ang_vel, dof_pos, dof_vel, key_body_pos]
 NUM_ACTIONS = 30
 

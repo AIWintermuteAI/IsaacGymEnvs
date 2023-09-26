@@ -5,10 +5,10 @@ wandb_group: ''
 wandb_name: AtlasAMP
 wandb_entity: ''
 wandb_project: 'atlas'
-capture_video: False
+capture_video: True
 capture_video_freq: 2500
 capture_video_len: 100
-force_render: True
+force_render: False
 
 physics_engine: ${..physics_engine}
 
@@ -17,13 +17,13 @@ env:
   numEnvs: ${resolve_default:512,${...num_envs}}
   envSpacing: 5
   episodeLength: 300
-  cameraFollow: False # if the camera follows humanoid or not
+  cameraFollow: True # if the camera follows humanoid or not
   enableDebugVis: False
 
   pdControl: False
   powerScale: 5.0
   controlFrequencyInv: 2 # 30 Hz
-  stateInit: "Random"
+  stateInit: "Default"
   hybridInitProb: 0.5
   numAMPObsSteps: 2
 

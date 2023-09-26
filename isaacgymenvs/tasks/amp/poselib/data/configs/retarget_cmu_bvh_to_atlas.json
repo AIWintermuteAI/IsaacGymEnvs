@@ -6,10 +6,10 @@
     "joint_mapping": {
          "Hips": "pelvis",
          "LeftHip": "l_uglut",
-         "LeftAnkle": "l_lleg",
+         "LeftAnkle": "l_uleg",
          "LeftToe": "l_foot",
          "RightHip": "r_uglut",
-         "RightAnkle": "r_lleg",
+         "RightAnkle": "r_uleg",
          "RightToe": "r_foot",
          "Chest": "ltorso",
          "Head": "head",

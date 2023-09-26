@@ -292,7 +292,7 @@ def main(file_path):
     target_motion.to_file(os.path.join(dir, retarget_data["target_motion_path"]))
 
     # visualize retargeted motion
-    plot_skeleton_motion_interactive(target_motion)
+    #plot_skeleton_motion_interactive(target_motion)
 
     return
 
