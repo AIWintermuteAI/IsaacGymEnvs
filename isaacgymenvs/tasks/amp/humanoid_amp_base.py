@@ -46,6 +46,26 @@ DOF_OFFSETS = [0, 3, 6, 9, 10, 13, 14, 17, 18, 21, 24, 25, 28]
 NUM_OBS = 13 + 52 + 28 + 12 + 3 # [root_h, root_rot, root_vel, root_ang_vel, dof_pos, dof_vel, key_body_pos, commands]
 NUM_ACTIONS = 28
 
+body_ids_offsets = {
+    # axis: x 0 y 1 z 2
+    # left leg
+    1: { "offset" : 0, "size": 3, 'axis': -1},
+    2: { "offset" : 3, "size": 3, 'axis': -1},
+    3: { "offset" : 6, "size": 3, 'axis': -1},
+    # right leg
+    4: { "offset" : 9, "size": 1, 'axis': 1},
+    6: { "offset" : 10, "size": 3, 'axis': -1},
+    7: { "offset" : 13, "size": 1, 'axis': 1},
+    # torso
+    9: { "offset" : 14, "size": 3, 'axis': -1},
+    10: { "offset" : 17, "size": 1, 'axis': 1},
+    11: { "offset" : 18, "size": 3, 'axis': -1},
+    # left arm
+    12: { "offset" : 21, "size": 3, 'axis': -1},
+    13: { "offset" : 24, "size": 1, 'axis': 1},
+    14: { "offset" : 25, "size": 3, 'axis': -1},
+}
+
 KEY_BODY_NAMES = ["right_hand", "left_hand", "right_foot", "left_foot"]
 
 class HumanoidAMPBase(VecTask):
@@ -615,7 +635,7 @@ def compute_humanoid_reset(reset_buf, progress_buf, contact_buf, contact_body_id
         fall_contact = torch.any(fall_contact, dim=-1)
 
         body_height = rigid_body_pos[..., 2]
-        print(body_height[0])
+
         fall_height = body_height < termination_height
         fall_height[:, contact_body_ids] = False
         fall_height = torch.any(fall_height, dim=-1)

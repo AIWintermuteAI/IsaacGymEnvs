@@ -38,10 +38,36 @@ from isaacgym.torch_utils import *
 from isaacgymenvs.utils.torch_jit_utils import *
 from ..base.vec_task import VecTask
 
-#DOF_BODY_IDS = [0, 4, 8, 9, 11, 12, 14, 19, 20, 21, 22, 25, 26, 29, 30]
-#DOF_OFFSETS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-DOF_BODY_IDS = [0, 4, 8, 9, 11, 12, 14, 19]
-DOF_OFFSETS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+body_ids_offsets = {
+    # axis: x 0 y 1 z 2
+    # left leg
+    # hip
+    2: { "offset" : 20, "size": 1, 'axis': 1},
+    # knee
+    8: { "offset" : 21, "size": 1, 'axis': 1},
+    # foot
+    20: { "offset" : 22, "size": 1, 'axis': 1},
+    # right leg
+    # hip
+    3: { "offset" : 26, "size": 1, 'axis': 1},
+    # knee
+    9: { "offset" : 27, "size": 1, 'axis': 1},
+    # foot
+    22: { "offset" : 28, "size": 1, 'axis': 1},
+    # torso
+    1: { "offset" : 0, "size": 3, 'axis': -1},
+    19: { "offset" : 2, "size": 0, 'axis': -1},
+    20: { "offset" : 10, "size": 0, 'axis': -1},
+    # left arm
+    21: { "offset" : 4, "size": 1, 'axis': 0},
+    22: { "offset" : 5, "size": 1, 'axis': 1},
+    25: { "offset" : 8, "size": 1, 'axis': 0},
+    # right arm
+    21: { "offset" : 12, "size": 1, 'axis': 0},
+    22: { "offset" : 13, "size": 1, 'axis': 1},
+    25: { "offset" : 16, "size": 1, 'axis': 0},
+}
+
 NUM_OBS = 104 #13 + 52 + 28 + 12 # [root_h, root_rot, root_vel, root_ang_vel, dof_pos, dof_vel, key_body_pos]
 NUM_ACTIONS = 30
 
@@ -556,6 +582,7 @@ def dof_to_obs(pose):
     #dof_offsets = [0, 3, 6, 9, 12, 13, 16, 19, 20, 23, 24, 27, 30, 31, 34]
     dof_obs_size = 52
     dof_offsets = [0, 3, 6, 9, 10, 13, 14, 17, 18, 21, 24, 25, 28]
+    # WRONG
     num_joints = len(dof_offsets) - 1
 
     dof_obs_shape = pose.shape[:-1] + (dof_obs_size,)

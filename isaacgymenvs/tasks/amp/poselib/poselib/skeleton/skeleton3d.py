@@ -208,6 +208,7 @@ class SkeletonTree(Serializable):
             local_translation.append(pos)
             curr_index = node_index
             node_index += 1
+            print(f"Node: {node_name} Idx: {curr_index}")
             for next_node in xml_node.findall("body"):
                 node_index = _add_xml_node(next_node, curr_index, node_index)
             return node_index
@@ -215,7 +216,6 @@ class SkeletonTree(Serializable):
         _add_xml_node(xml_body_root, -1, 0)
 
         #print(node_names)
-        #print(link_parents)
         #print(parent_indices)
         #print(local_translation)
 
@@ -275,7 +275,7 @@ class SkeletonTree(Serializable):
                     break
             return pos
 
-        def return_children(root, parents):
+        def return_children(root, parents, node_idx):
             children = []
             for joint_node in root.findall("joint"):
                 child_link = joint_node.findall("child")[0].attrib["link"]
@@ -284,9 +284,11 @@ class SkeletonTree(Serializable):
                     link_parents[child_link] = parent_link
                     children.append(child_link)
                     local_translation.append(find_translation(root, child_link))
+                    node_idx += 1
+                    print(f"Node: {child_link} Idx: {node_idx}")
             if len(children) > 0:
                 node_names.extend(children)
-                return return_children(root, children)
+                return return_children(root, children, node_idx)
             else:
                 return children
 
@@ -294,19 +296,19 @@ class SkeletonTree(Serializable):
         node_names.append("pelvis")
         local_translation.append(find_translation(root, "pelvis"))
 
-        return_children(root, node_names[0])
+        return_children(root, node_names[0], 0)
 
         parent_indices = [find_element_in_list(link_parents[name], node_names) for name in node_names]
 
         DOF_OFFSETS = [find_element_in_list(name, node_names) for name in list(joint_mapping.values())]
 
-        print(node_names)
-        print(link_parents)
+        #print(node_names)
+        #print(link_parents)
         #print(sorted(DOF_OFFSETS))
-        for name, i in zip(list(joint_mapping.values()), sorted(DOF_OFFSETS)):
-            print(name, i)
-        print(parent_indices)
-        print(local_translation)
+        #for name, i in zip(list(joint_mapping.values()), sorted(DOF_OFFSETS)):
+        #    print(name, i)
+        #print(parent_indices)
+        #print(local_translation)
         #stop
         return cls(
             node_names,

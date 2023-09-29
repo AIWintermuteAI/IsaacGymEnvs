@@ -36,13 +36,12 @@ from isaacgym.torch_utils import *
 from isaacgymenvs.utils.torch_jit_utils import *
 
 class MotionLib():
-    def __init__(self, motion_file, num_dofs, key_body_ids, device, body_ids, dof_offsets):
+    def __init__(self, motion_file, num_dofs, key_body_ids, device, body_ids_offsets):
         self._num_dof = num_dofs
         self._key_body_ids = key_body_ids
         self._device = device
 
-        self.body_ids = body_ids
-        self.dof_offsets = dof_offsets
+        self.body_ids = body_ids_offsets
 
         self._load_motions(motion_file)
 
@@ -264,16 +263,13 @@ class MotionLib():
         return dof_vels
 
     def _local_rotation_to_dof(self, local_rot):
-        #body_ids = DOF_BODY_IDS
-        #dof_offsets = DOF_OFFSETS
 
         n = local_rot.shape[0]
         dof_pos = torch.zeros((n, self._num_dof), dtype=torch.float, device=self._device)
 
-        for j in range(len(self.body_ids)):
-            body_id = self.body_ids[j]
-            joint_offset = self.dof_offsets[j]
-            joint_size = self.dof_offsets[j + 1] - joint_offset
+        for body_id in self.body_ids.keys():
+            joint_offset = self.body_ids[body_id]['offset']
+            joint_size = self.body_ids[body_id]['size']
 
             if (joint_size == 3):
                 joint_q = local_rot[:, body_id]
@@ -282,11 +278,14 @@ class MotionLib():
             elif (joint_size == 1):
                 joint_q = local_rot[:, body_id]
                 joint_theta, joint_axis = quat_to_angle_axis(joint_q)
-                joint_theta = joint_theta * joint_axis[..., 1] # assume joint is always along y axis
+                # we don't assume joint is always along y axis
+                joint_theta = joint_theta * joint_axis[..., self.body_ids[body_id]['axis']]
 
                 joint_theta = normalize_angle(joint_theta)
                 dof_pos[:, joint_offset] = joint_theta
 
+            elif (joint_size == 0):
+                pass
             else:
                 print("Unsupported joint type")
                 assert(False)
@@ -294,9 +293,6 @@ class MotionLib():
         return dof_pos
 
     def _local_rotation_to_dof_vel(self, local_rot0, local_rot1, dt):
-        #body_ids = DOF_BODY_IDS
-        #dof_offsets = DOF_OFFSETS
-
         dof_vel = np.zeros([self._num_dof])
 
         diff_quat_data = quat_mul_norm(quat_inverse(local_rot0), local_rot1)
@@ -304,12 +300,10 @@ class MotionLib():
         local_vel = diff_axis * diff_angle.unsqueeze(-1) / dt
         local_vel = local_vel.numpy()
 
-        for j in range(len(self.body_ids)):
-            body_id = self.body_ids[j]
-            joint_offset = self.dof_offsets[j]
-            #print(dof_offsets[j])
-            joint_size = self.dof_offsets[j + 1] - joint_offset
-            #print(dof_offsets[j])
+        for body_id in self.body_ids.keys():
+            joint_offset = self.body_ids[body_id]['offset']
+            joint_size = self.body_ids[body_id]['size']
+
             if (joint_size == 3):
                 joint_vel = local_vel[body_id]
                 dof_vel[joint_offset:(joint_offset + joint_size)] = joint_vel
@@ -317,8 +311,11 @@ class MotionLib():
             elif (joint_size == 1):
                 assert(joint_size == 1)
                 joint_vel = local_vel[body_id]
-                dof_vel[joint_offset] = joint_vel[1] # assume joint is always along y axis
+                # we don't assume joint is always along y axis
+                dof_vel[joint_offset] = joint_vel[self.body_ids[body_id]['axis']]
 
+            elif (joint_size == 0):
+                pass
             else:
                 print("Unsupported joint type")
                 assert(False)
