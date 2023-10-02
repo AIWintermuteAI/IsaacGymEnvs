@@ -63,7 +63,7 @@ params:
     lr_schedule: adaptive
     kl_threshold: 0.008
     score_to_win: 20000
-    max_epochs: ${resolve_default:500,${....max_iterations}}
+    max_epochs: ${resolve_default:1000,${....max_iterations}}
     save_best_after: 100
     save_frequency: 50
     print_stats: True
@@ -72,7 +72,7 @@ params:
     truncate_grads: False
     e_clip: 0.2
     horizon_length: 16
-    minibatch_size: 512
+    minibatch_size: ${....task.env.numEnvs}
     mini_epochs: 6
     critic_coef: 5
     clip_value: False
@@ -81,11 +81,11 @@ params:
     amp_obs_demo_buffer_size: 200000
     amp_replay_buffer_size: 1000000
     amp_replay_keep_prob: 0.01
-    amp_batch_size: 512
-    amp_minibatch_size: 512
+    amp_batch_size: ${eval:'${....task.env.numEnvs} / 2'}
+    amp_minibatch_size: ${....task.env.numEnvs}
     disc_coef: 5
     disc_logit_reg: 0.05
-    disc_grad_penalty: 0.5
+    disc_grad_penalty: 5.0
     disc_reward_scale: 2
     disc_weight_decay: 0.0001
     normalize_amp_input: True

@@ -9,12 +9,12 @@ OmegaConf.register_new_resolver('eq', lambda x, y: x.lower()==y.lower())
 OmegaConf.register_new_resolver('contains', lambda x, y: x.lower() in y.lower())
 OmegaConf.register_new_resolver('if', lambda pred, a, b: a if pred else b)
 OmegaConf.register_new_resolver('resolve_default', lambda default, arg: default if arg=='' else arg)
-
+OmegaConf.register_new_resolver("eval", eval)
 
 def make(
-    seed: int, 
-    task: str, 
-    num_envs: int, 
+    seed: int,
+    task: str,
+    num_envs: int,
     sim_device: str,
     rl_device: str,
     graphics_device_id: int = -1,
@@ -23,7 +23,7 @@ def make(
     virtual_screen_capture: bool = False,
     force_render: bool = True,
     cfg: DictConfig = None
-): 
+):
     from isaacgymenvs.utils.rlgames_utils import get_rlgames_env_creator
     # create hydra config if no config passed in
     if cfg is None:
