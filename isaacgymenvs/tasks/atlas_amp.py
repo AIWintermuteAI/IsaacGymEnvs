@@ -43,9 +43,9 @@ from isaacgymenvs.tasks.amp.utils_amp.motion_lib import MotionLib
 from isaacgym.torch_utils import *
 from isaacgymenvs.utils.torch_jit_utils import *
 
-from isaacgymenvs.tasks.amp.atlas_amp_base import body_ids_offsets
+from isaacgymenvs.tasks.amp.atlas_amp_base import body_ids_offsets, KEY_BODY_NAMES
 
-NUM_AMP_OBS_PER_STEP = 101 #13 + 52 + 28 + 12 # [root_h, root_rot, root_vel, root_ang_vel, dof_pos, dof_vel, key_body_pos]
+NUM_AMP_OBS_PER_STEP = 95 + (len(KEY_BODY_NAMES) * 3) #13 + 52 + 28 + 12 # [root_h, root_rot, root_vel, root_ang_vel, dof_pos, dof_vel, key_body_pos]
 
 class AtlasAMP(AtlasAMPBase):
 
@@ -148,8 +148,7 @@ class AtlasAMP(AtlasAMPBase):
                                      num_dofs=self.num_dof,
                                      key_body_ids=translated_key_body_ids,
                                      device=self.device,
-                                     body_ids=DOF_BODY_IDS,
-                                     dof_offsets=DOF_OFFSETS)
+                                     body_ids_offsets=body_ids_offsets)
         return
 
     def reset_idx(self, env_ids):
@@ -203,18 +202,12 @@ class AtlasAMP(AtlasAMPBase):
         root_pos, root_rot, dof_pos, root_vel, root_ang_vel, dof_vel, key_pos \
                = self._motion_lib.get_motion_state(motion_ids, motion_times)
 
-        #self._set_env_state(env_ids=env_ids,
-        #                    root_pos=torch.FloatTensor([0, 0, 0.95]).to(self.device),
-        #                    root_rot=torch.FloatTensor([0, 0, 0, 1]).to(self.device),
-        #                    dof_pos=dof_pos,
-        #                    root_vel=torch.FloatTensor([0, 0, 0]).to(self.device),
-        #                    root_ang_vel=torch.FloatTensor([0, 0, 0]).to(self.device),
-        #                    dof_vel=dof_vel)
-
         #print(dof_pos)
         #print(dof_vel)
         #dof_pos = torch.zeros_like(dof_pos).to(self.device)
         #dof_vel = torch.zeros_like(dof_vel).to(self.device)
+        #root_pos = torch.FloatTensor([0, 0, 0.85]).to(self.device)
+        #root_rot = torch.FloatTensor([0, 0, 0, 1]).to(self.device)
         #root_vel = torch.zeros_like(root_vel).to(self.device)
         #root_ang_vel = torch.zeros_like(root_ang_vel).to(self.device)
 
@@ -354,3 +347,6 @@ def build_amp_observations(root_states, dof_pos, dof_vel, key_body_pos, local_ro
     obs = torch.cat((root_h, root_rot_obs, local_root_vel, local_root_ang_vel, dof_obs, dof_vel, flat_local_key_pos), dim=-1)
     #print("obs", obs.shape)
     return obs
+
+#     "scale": 0.102212722,
+#     "root_height_offset": -0.1,

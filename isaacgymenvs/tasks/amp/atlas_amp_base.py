@@ -40,39 +40,45 @@ from ..base.vec_task import VecTask
 
 body_ids_offsets = {
     # axis: x 0 y 1 z 2
+
     # left leg
     # hip
     2: { "offset" : 20, "size": 1, 'axis': 1},
     # knee
     8: { "offset" : 21, "size": 1, 'axis': 1},
     # foot
-    20: { "offset" : 22, "size": 1, 'axis': 1},
+    16: { "offset" : 22, "size": 1, 'axis': 1},
+
     # right leg
     # hip
     3: { "offset" : 26, "size": 1, 'axis': 1},
     # knee
     9: { "offset" : 27, "size": 1, 'axis': 1},
     # foot
-    22: { "offset" : 28, "size": 1, 'axis': 1},
+    18: { "offset" : 28, "size": 1, 'axis': 1},
+
     # torso
     1: { "offset" : 0, "size": 3, 'axis': -1},
-    19: { "offset" : 2, "size": 0, 'axis': -1},
-    20: { "offset" : 10, "size": 0, 'axis': -1},
-    # left arm
-    21: { "offset" : 4, "size": 1, 'axis': 0},
-    22: { "offset" : 5, "size": 1, 'axis': 1},
-    25: { "offset" : 8, "size": 1, 'axis': 0},
-    # right arm
-    21: { "offset" : 12, "size": 1, 'axis': 0},
-    22: { "offset" : 13, "size": 1, 'axis': 1},
-    25: { "offset" : 16, "size": 1, 'axis': 0},
-}
+    1: { "offset" : 1, "size": 0, 'axis': -1},
+    1: { "offset" : 2, "size": 0, 'axis': -1},
+    # head
+    12: { "offset" : 10, "size": 0, 'axis': -1},
 
-NUM_OBS = 104 #13 + 52 + 28 + 12 # [root_h, root_rot, root_vel, root_ang_vel, dof_pos, dof_vel, key_body_pos]
-NUM_ACTIONS = 30
+    # left arm
+    19: { "offset" : 4, "size": 0, 'axis': 0},
+    25: { "offset" : 5, "size": 0, 'axis': 1},
+    29: { "offset" : 8, "size": 0, 'axis': 0},
+    # right arm
+    21: { "offset" : 12, "size": 0, 'axis': 0},
+    26: { "offset" : 13, "size": 0, 'axis': 1},
+    30: { "offset" : 16, "size": 0, 'axis': 0},
+}
 
 KEY_BODY_NAMES = ["r_foot", "l_foot"]
 #KEY_BODY_NAMES = ["r_hand", "l_hand", "r_foot", "l_foot"]
+
+NUM_OBS = 98 + (len(KEY_BODY_NAMES) * 3) #13 + 52 + 28 + 12 # [root_h, root_rot, root_vel, root_ang_vel, dof_pos, dof_vel, key_body_pos]
+NUM_ACTIONS = 30
 
 class AtlasAMPBase(VecTask):
 
@@ -297,7 +303,7 @@ class AtlasAMPBase(VecTask):
             )
             contact_filter = 0
 
-            handle = self.gym.create_actor(env_ptr, humanoid_asset, start_pose, "atlas", i, contact_filter, 0)
+            handle = self.gym.create_actor(env_ptr, humanoid_asset, start_pose, "atlas", i, 1, 0)
 
             self.gym.enable_actor_dof_force_sensors(env_ptr, handle)
 
@@ -344,14 +350,14 @@ class AtlasAMPBase(VecTask):
         return
 
     def _build_pd_action_offset_scale(self):
-        num_joints = len(DOF_OFFSETS) - 1
+        num_joints = len(body_ids_offsets.keys())
 
         lim_low = self.dof_limits_lower.cpu().numpy()
         lim_high = self.dof_limits_upper.cpu().numpy()
 
-        for j in range(num_joints):
-            dof_offset = DOF_OFFSETS[j]
-            dof_size = DOF_OFFSETS[j + 1] - DOF_OFFSETS[j]
+        for body_id in body_ids_offsets.keys():
+            dof_offset = body_ids_offsets[body_id]['offset']
+            dof_size = body_ids_offsets[body_id]['size']
 
             if (dof_size == 3):
                 lim_low[dof_offset:(dof_offset + dof_size)] = -np.pi
@@ -578,20 +584,51 @@ class AtlasAMPBase(VecTask):
 @torch.jit.script
 def dof_to_obs(pose):
     # type: (Tensor) -> Tensor
-    #dof_obs_size = 64
-    #dof_offsets = [0, 3, 6, 9, 12, 13, 16, 19, 20, 23, 24, 27, 30, 31, 34]
     dof_obs_size = 52
-    dof_offsets = [0, 3, 6, 9, 10, 13, 14, 17, 18, 21, 24, 25, 28]
-    # WRONG
-    num_joints = len(dof_offsets) - 1
+
+    body_ids_offsets = {
+        # axis: x 0 y 1 z 2
+
+        # left leg
+        # hip
+        2: { "offset" : 20, "size": 1, 'axis': 1},
+        # knee
+        8: { "offset" : 21, "size": 1, 'axis': 1},
+        # foot
+        16: { "offset" : 22, "size": 1, 'axis': 1},
+
+        # right leg
+        # hip
+        3: { "offset" : 26, "size": 1, 'axis': 1},
+        # knee
+        9: { "offset" : 27, "size": 1, 'axis': 1},
+        # foot
+        18: { "offset" : 28, "size": 1, 'axis': 1},
+
+        # torso
+        1: { "offset" : 0, "size": 3, 'axis': -1},
+        1: { "offset" : 1, "size": 0, 'axis': -1},
+        1: { "offset" : 2, "size": 0, 'axis': -1},
+        # head
+        12: { "offset" : 10, "size": 0, 'axis': -1},
+
+        # left arm
+        19: { "offset" : 4, "size": 0, 'axis': 0},
+        25: { "offset" : 5, "size": 0, 'axis': 1},
+        29: { "offset" : 8, "size": 0, 'axis': 0},
+        # right arm
+        21: { "offset" : 12, "size": 0, 'axis': 0},
+        26: { "offset" : 13, "size": 0, 'axis': 1},
+        30: { "offset" : 16, "size": 0, 'axis': 0},
+    }
 
     dof_obs_shape = pose.shape[:-1] + (dof_obs_size,)
     dof_obs = torch.zeros(dof_obs_shape, device=pose.device)
     dof_obs_offset = 0
 
-    for j in range(num_joints):
-        dof_offset = dof_offsets[j]
-        dof_size = dof_offsets[j + 1] - dof_offsets[j]
+    for body_id in body_ids_offsets.keys():
+        dof_offset = body_ids_offsets[body_id]['offset']
+        dof_size = body_ids_offsets[body_id]['size']
         joint_pose = pose[:, dof_offset:(dof_offset + dof_size)]
 
         # assume this is a spherical joint
@@ -599,10 +636,17 @@ def dof_to_obs(pose):
             joint_pose_q = exp_map_to_quat(joint_pose)
             joint_dof_obs = quat_to_tan_norm(joint_pose_q)
             dof_obs_size = 6
-        else:
+        elif (dof_size == 1):
             joint_dof_obs = joint_pose
             dof_obs_size = 1
-
+        elif (dof_size == 0):
+            joint_dof_obs = joint_pose
+            dof_obs_size = 0
+        else:
+            print("Unsupported joint type")
+            joint_dof_obs = joint_pose
+            dof_obs_size = 0
+            assert(False)
         dof_obs[:, dof_obs_offset:(dof_obs_offset + dof_obs_size)] = joint_dof_obs
         dof_obs_offset += dof_obs_size
 
@@ -640,6 +684,7 @@ def compute_humanoid_observations(root_states, dof_pos, dof_vel, key_body_pos, l
     flat_local_key_pos = local_end_pos.view(local_key_body_pos.shape[0], local_key_body_pos.shape[1] * local_key_body_pos.shape[2])
 
     dof_obs = dof_to_obs(dof_pos)
+    #print(dof_obs)
 
     obs = torch.cat((root_h, root_rot_obs, local_root_vel, local_root_ang_vel, dof_obs, dof_vel, flat_local_key_pos), dim=-1)
     #assert not obs.isnan().any()
@@ -659,6 +704,9 @@ def compute_humanoid_reset(reset_buf, progress_buf, contact_buf, contact_body_id
 
     if (enable_early_termination):
         masked_contact_buf = contact_buf.clone()
+        #feet_no_contact = torch.all(masked_contact_buf[:, contact_body_ids, :] <= 0.0, dim=-1)
+        #feet_no_contact = torch.all(feet_no_contact, dim=-1)
+
         masked_contact_buf[:, contact_body_ids, :] = 0
         fall_contact = torch.any(masked_contact_buf > 0.1, dim=-1)
         fall_contact = torch.any(fall_contact, dim=-1)
@@ -670,12 +718,26 @@ def compute_humanoid_reset(reset_buf, progress_buf, contact_buf, contact_body_id
         #fall_height[:, contact_body_ids] = False
         #fall_height = torch.any(fall_height, dim=-1)
 
-        has_fallen = torch.logical_or(fly_height, fall_height)
+        #feet_no_contact *= (progress_buf > 3)
+        has_fallen_or_flying = torch.logical_or(fall_height, fly_height)
+        #feet_in_the_air_body_contact = torch.logical_or(feet_no_contact, fall_contact)
 
+        terminate = torch.logical_or(has_fallen_or_flying, fall_contact)
+
+        #if feet_no_contact[0]:
+        #    print("feet_no_contact")
+        #if fall_contact[0]:
+        #    print("fall_contact")
+        #if fall_height[0]:
+        #    print("fall_height")
+        #if fly_height[0]:
+        #    print("fly_height")
+        #if terminate[0]:
+        #    print("terminate")
         # first timestep can sometimes still have nonzero contact forces
         # so only check after first couple of steps
-        has_fallen *= (progress_buf > 1)
-        terminated = torch.where(has_fallen, torch.ones_like(reset_buf), terminated)
+        terminate *= (progress_buf > 1)
+        terminated = torch.where(terminate, torch.ones_like(reset_buf), terminated)
 
     reset = torch.where(progress_buf >= max_episode_length - 1, torch.ones_like(reset_buf), terminated)
 
