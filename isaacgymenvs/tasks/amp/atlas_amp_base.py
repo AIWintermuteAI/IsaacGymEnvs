@@ -30,6 +30,7 @@
 import numpy as np
 import os
 import torch
+import math
 
 from isaacgym import gymtorch
 from isaacgym import gymapi
@@ -44,18 +45,24 @@ body_ids_offsets = {
     # left leg
     # hip
     2: { "offset" : 20, "size": 1, 'axis': 1},
+    #2: { "offset" : 18, "size": 1, 'axis': 2},
+    #2: { "offset" : 19, "size": 1, 'axis': 0},
     # knee
     8: { "offset" : 21, "size": 1, 'axis': 1},
     # foot
     16: { "offset" : 22, "size": 1, 'axis': 1},
+    #20: { "offset" : 23, "size": 1, 'axis': 0},
 
     # right leg
     # hip
     3: { "offset" : 26, "size": 1, 'axis': 1},
+    #3: { "offset" : 24, "size": 1, 'axis': 2},
+    #3: { "offset" : 25, "size": 1, 'axis': 0},
     # knee
     9: { "offset" : 27, "size": 1, 'axis': 1},
     # foot
     18: { "offset" : 28, "size": 1, 'axis': 1},
+    #22: { "offset" : 29, "size": 1, 'axis': 0},
 
     # torso
     1: { "offset" : 0, "size": 3, 'axis': -1},
@@ -65,13 +72,19 @@ body_ids_offsets = {
     12: { "offset" : 10, "size": 0, 'axis': -1},
 
     # left arm
-    19: { "offset" : 4, "size": 0, 'axis': 0},
-    25: { "offset" : 5, "size": 0, 'axis': 1},
-    29: { "offset" : 8, "size": 0, 'axis': 0},
+    10: { "offset" : 4, "size": 3, 'axis': 0},
+    #19: { "offset" : 3, "size": 1, 'axis': 2},
+    25: { "offset" : 5, "size": 1, 'axis': 1},
+    25: { "offset" : 6, "size": 1, 'axis': 0},
+    29: { "offset" : 7, "size": 1, 'axis': 1},
+    29: { "offset" : 8, "size": 1, 'axis': 0},
     # right arm
-    21: { "offset" : 12, "size": 0, 'axis': 0},
-    26: { "offset" : 13, "size": 0, 'axis': 1},
-    30: { "offset" : 16, "size": 0, 'axis': 0},
+    13: { "offset" : 12, "size": 3, 'axis': 0},
+    #13: { "offset" : 11, "size": 1, 'axis': 2},
+    26: { "offset" : 13, "size": 1, 'axis': 1},
+    26: { "offset" : 14, "size": 1, 'axis': 0},
+    30: { "offset" : 15, "size": 1, 'axis': 1},
+    30: { "offset" : 16, "size": 1, 'axis': 0},
 }
 
 KEY_BODY_NAMES = ["r_foot", "l_foot"]
@@ -257,16 +270,23 @@ class AtlasAMPBase(VecTask):
             asset_file = self.cfg["env"]["asset"].get("assetFileName", asset_file)
 
         asset_options = gymapi.AssetOptions()
-        asset_options.angular_damping = 0.01
-        asset_options.max_angular_velocity = 100.0
+        asset_options.density = 0.001
+        asset_options.angular_damping = 0.4
+        asset_options.linear_damping = 0.0
+        asset_options.armature = 0.0
+        asset_options.thickness = 0.01
         asset_options.flip_visual_attachments = True
-        asset_options.default_dof_drive_mode = gymapi.DOF_MODE_NONE
+        if (self._pd_control):
+            asset_options.default_dof_drive_mode = gymapi.DOF_MODE_POS
+        else:
+            asset_options.default_dof_drive_mode = gymapi.DOF_MODE_NONE
         asset_options.fix_base_link = False
+        asset_options.override_com = True
+        #asset_options.override_inertia = True
         humanoid_asset = self.gym.load_asset(self.sim, asset_root, asset_file, asset_options)
 
         dof_props = self.gym.get_asset_dof_properties(humanoid_asset)
 
-        print(len(dof_props))
         motor_efforts = [prop[5] for prop in dof_props]
 
         # create force sensors at the feet
@@ -284,6 +304,12 @@ class AtlasAMPBase(VecTask):
         self.num_bodies = self.gym.get_asset_rigid_body_count(humanoid_asset)
         self.num_dof = self.gym.get_asset_dof_count(humanoid_asset)
         self.num_joints = self.gym.get_asset_joint_count(humanoid_asset)
+
+        for j in range(self.num_dof):
+            dof_props['effort'][j] = math.ceil(dof_props['effort'][j] * self.power_scale)
+            #dof_props['velocity'][j] = math.ceil(dof_props['velocity'][j] * self.power_scale)
+            #dof_props['stiffness'][j] = self.cfg["env"]["control"]["stiffness"]
+            #dof_props['damping'][j] = self.cfg["env"]["control"]["damping"]
 
         start_pose = gymapi.Transform()
         start_pose.p = gymapi.Vec3(*get_axis_params(0.95, self.up_axis_idx))
@@ -307,17 +333,8 @@ class AtlasAMPBase(VecTask):
 
             self.gym.enable_actor_dof_force_sensors(env_ptr, handle)
 
-            #for j in range(self.num_bodies):
-            #    self.gym.set_rigid_body_color(
-            #        env_ptr, handle, j, gymapi.MESH_VISUAL, gymapi.Vec3(0.4706, 0.549, 0.6863))
-
             self.envs.append(env_ptr)
             self.humanoid_handles.append(handle)
-
-            if (self._pd_control):
-                dof_prop = self.gym.get_asset_dof_properties(humanoid_asset)
-                dof_prop["driveMode"] = gymapi.DOF_MODE_POS
-                self.gym.set_actor_dof_properties(env_ptr, handle, dof_prop)
 
         dof_prop = self.gym.get_actor_dof_properties(env_ptr, handle)
         for j in range(self.num_dof):
@@ -328,13 +345,18 @@ class AtlasAMPBase(VecTask):
                 self.dof_limits_lower.append(dof_prop['lower'][j])
                 self.dof_limits_upper.append(dof_prop['upper'][j])
 
+        print("Body names")
         self.body_names = self.gym.get_asset_rigid_body_names(humanoid_asset)
         for j, body_name in enumerate(self.body_names):
             print(j, body_name)
+
         print("DOF names")
         self.dof_names = self.gym.get_asset_dof_names(humanoid_asset)
         for j, dof_name in enumerate(self.dof_names):
-            print(j, dof_name)
+            print(f"""DOF props: {dof_name}
+                  hasLimits {dof_props[j]['hasLimits']} lower {dof_props[j]['lower']} upper {dof_props[j]['upper']}
+                  driveMode {dof_props[j]['driveMode']} stiffness {dof_props[j]['stiffness']} damping {dof_props[j]['damping']}
+                  velocity {dof_props[j]['velocity']} effort {dof_props[j]['effort']} friction {dof_props[j]['friction']} armature {dof_props[j]['armature']}""")
 
         self.dof_limits_lower = to_torch(self.dof_limits_lower, device=self.device)
         self.dof_limits_upper = to_torch(self.dof_limits_upper, device=self.device)

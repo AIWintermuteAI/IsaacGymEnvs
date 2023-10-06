@@ -202,13 +202,13 @@ class AtlasAMP(AtlasAMPBase):
         root_pos, root_rot, dof_pos, root_vel, root_ang_vel, dof_vel, key_pos \
                = self._motion_lib.get_motion_state(motion_ids, motion_times)
 
-        #print(dof_pos)
+        #print(root_pos[0])
         #print(dof_vel)
         #dof_pos = torch.zeros_like(dof_pos).to(self.device)
         #dof_vel = torch.zeros_like(dof_vel).to(self.device)
         #root_pos = torch.FloatTensor([0, 0, 0.85]).to(self.device)
         #root_rot = torch.FloatTensor([0, 0, 0, 1]).to(self.device)
-        #root_vel = torch.zeros_like(root_vel).to(self.device)
+        #root_vel = torch.FloatTensor([2, 0, 0]).to(self.device)
         #root_ang_vel = torch.zeros_like(root_ang_vel).to(self.device)
 
         self._set_env_state(env_ids=env_ids,
@@ -345,7 +345,7 @@ def build_amp_observations(root_states, dof_pos, dof_vel, key_body_pos, local_ro
     dof_obs = dof_to_obs(dof_pos)
 
     obs = torch.cat((root_h, root_rot_obs, local_root_vel, local_root_ang_vel, dof_obs, dof_vel, flat_local_key_pos), dim=-1)
-    #print("obs", obs.shape)
+    #print(root_h.shape, root_rot_obs.shape)
     return obs
 
 #     "scale": 0.102212722,

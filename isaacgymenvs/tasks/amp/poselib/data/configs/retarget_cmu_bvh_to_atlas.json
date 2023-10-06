@@ -13,10 +13,10 @@
          "RightToe": "r_foot",
          "Chest": "ltorso",
          "Head": "head",
-         "LeftShoulder": "l_uarm",
+         "LeftShoulder": "l_clav",
          "LeftElbow": "l_ufarm",
          "lhand": "l_hand",
-         "RightShoulder": "r_uarm",
+         "RightShoulder": "r_clav",
          "RightElbow": "r_ufarm",
          "rhand": "r_hand"
     },
