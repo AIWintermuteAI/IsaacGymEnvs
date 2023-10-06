@@ -39,10 +39,6 @@ from isaacgym.torch_utils import *
 
 from ..base.vec_task import VecTask
 
-#from isaacgymenvs.tasks.humanoid_tasks import get_task_class_by_name
-
-DOF_BODY_IDS = [1, 2, 3, 4, 6, 7, 9, 10, 11, 12, 13, 14]
-DOF_OFFSETS = [0, 3, 6, 9, 10, 13, 14, 17, 18, 21, 24, 25, 28]
 NUM_OBS = 13 + 52 + 28 + 12 + 3 # [root_h, root_rot, root_vel, root_ang_vel, dof_pos, dof_vel, key_body_pos, commands]
 NUM_ACTIONS = 28
 
@@ -318,14 +314,14 @@ class HumanoidAMPBase(VecTask):
         return
 
     def _build_pd_action_offset_scale(self):
-        num_joints = len(DOF_OFFSETS) - 1
+        num_joints = len(body_ids_offsets.keys())
 
         lim_low = self.dof_limits_lower.cpu().numpy()
         lim_high = self.dof_limits_upper.cpu().numpy()
 
-        for j in range(num_joints):
-            dof_offset = DOF_OFFSETS[j]
-            dof_size = DOF_OFFSETS[j + 1] - DOF_OFFSETS[j]
+        for body_id in body_ids_offsets.keys():
+            dof_offset = body_ids_offsets[body_id]['offset']
+            dof_size = body_ids_offsets[body_id]['size']
 
             if (dof_size == 3):
                 lim_low[dof_offset:(dof_offset + dof_size)] = -np.pi
@@ -550,20 +546,35 @@ class HumanoidAMPBase(VecTask):
 
 @torch.jit.script
 def dof_to_obs(pose):
-    # type: (Tensor) -> Tensor
-    #dof_obs_size = 64
-    #dof_offsets = [0, 3, 6, 9, 12, 13, 16, 19, 20, 23, 24, 27, 30, 31, 34]
     dof_obs_size = 52
-    dof_offsets = [0, 3, 6, 9, 10, 13, 14, 17, 18, 21, 24, 25, 28]
-    num_joints = len(dof_offsets) - 1
+
+    body_ids_offsets = {
+        # axis: x 0 y 1 z 2
+        # left leg
+        1: { "offset" : 0, "size": 3, 'axis': -1},
+        2: { "offset" : 3, "size": 3, 'axis': -1},
+        3: { "offset" : 6, "size": 3, 'axis': -1},
+        # right leg
+        4: { "offset" : 9, "size": 1, 'axis': 1},
+        6: { "offset" : 10, "size": 3, 'axis': -1},
+        7: { "offset" : 13, "size": 1, 'axis': 1},
+        # torso
+        9: { "offset" : 14, "size": 3, 'axis': -1},
+        10: { "offset" : 17, "size": 1, 'axis': 1},
+        11: { "offset" : 18, "size": 3, 'axis': -1},
+        # left arm
+        12: { "offset" : 21, "size": 3, 'axis': -1},
+        13: { "offset" : 24, "size": 1, 'axis': 1},
+        14: { "offset" : 25, "size": 3, 'axis': -1},
+    }
 
     dof_obs_shape = pose.shape[:-1] + (dof_obs_size,)
     dof_obs = torch.zeros(dof_obs_shape, device=pose.device)
     dof_obs_offset = 0
 
-    for j in range(num_joints):
-        dof_offset = dof_offsets[j]
-        dof_size = dof_offsets[j + 1] - dof_offsets[j]
+    for body_id in body_ids_offsets.keys():
+        dof_offset = body_ids_offsets[body_id]['offset']
+        dof_size = body_ids_offsets[body_id]['size']
         joint_pose = pose[:, dof_offset:(dof_offset + dof_size)]
 
         # assume this is a spherical joint
@@ -571,10 +582,17 @@ def dof_to_obs(pose):
             joint_pose_q = exp_map_to_quat(joint_pose)
             joint_dof_obs = quat_to_tan_norm(joint_pose_q)
             dof_obs_size = 6
-        else:
+        elif (dof_size == 1):
             joint_dof_obs = joint_pose
             dof_obs_size = 1
-
+        elif (dof_size == 0):
+            joint_dof_obs = joint_pose
+            dof_obs_size = 0
+        else:
+            print("Unsupported joint type")
+            joint_dof_obs = joint_pose
+            dof_obs_size = 0
+            assert(False)
         dof_obs[:, dof_obs_offset:(dof_obs_offset + dof_obs_size)] = joint_dof_obs
         dof_obs_offset += dof_obs_size
 

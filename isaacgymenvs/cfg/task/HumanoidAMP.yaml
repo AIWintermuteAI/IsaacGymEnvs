@@ -34,10 +34,10 @@ env:
 
   # animation files to learn from
   # these motions should use hyperparameters from HumanoidAMPPPO.yaml
-  #motion_file: "amp_humanoid_walk.npy"
+  motion_file: "amp_humanoid_walk.npy"
   #motion_file: "amp_humanoid_run.npy"
   #motion_file: "amp_humanoid_dance.npy"
-  motion_file: "dataset_humanoid.yaml"
+  #motion_file: "dataset_humanoid.yaml"
 
   # these motions should use hyperparameters from HumanoidAMPPPOLowGP.yaml
   #motion_file: "amp_humanoid_hop.npy"
@@ -52,7 +52,7 @@ env:
     restitution: 0.0
 
 task:
-  enable: True
+  enable: False
   randomCommandVelocityRanges:
     # train
     linear_x: [0., 2.] # min max [m/s]
