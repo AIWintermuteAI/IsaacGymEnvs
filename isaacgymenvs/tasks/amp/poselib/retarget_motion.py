@@ -47,7 +47,7 @@ Data required for retargeting are stored in a retarget config dictionary as a js
   - scale: scale offset from source to target skeleton
 """
 
-VISUALIZE = False
+DEBUG= False
 
 def project_joints(motion, is_atlas):
     if is_atlas:
@@ -217,28 +217,27 @@ def project_joints(motion, is_atlas):
 
     return new_motion
 
-
-def main(file_path):
+def main(config_path, filename, visualize):
     # load retarget config
     dir = os.path.realpath(os.path.dirname(__file__))
 
-    is_atlas = "atlas" in file_path
-    retarget_data_path = os.path.join(dir, file_path)
-    with open(retarget_data_path) as f:
+    is_atlas = "atlas" in config_path
+    config_path = os.path.join(dir, config_path)
+    with open(config_path) as f:
         retarget_data = json.load(f)
 
     # load and visualize t-pose files
     source_tpose = SkeletonState.from_file(os.path.join(dir, retarget_data["source_tpose"]))
-    if VISUALIZE:
+    if DEBUG:
         plot_skeleton_state(source_tpose)
 
     target_tpose = SkeletonState.from_file(os.path.join(dir, retarget_data["target_tpose"]))
-    if VISUALIZE:
+    if DEBUG:
         plot_skeleton_state(target_tpose)
 
     # load and visualize source motion sequence
-    source_motion = SkeletonMotion.from_file(os.path.join(dir, retarget_data["source_motion"]))
-    if VISUALIZE:
+    source_motion = SkeletonMotion.from_file(os.path.join(dir, retarget_data["source_motion"], filename))
+    if DEBUG:
         plot_skeleton_motion_interactive(source_motion)
 
     # parse data from retarget config
@@ -289,15 +288,25 @@ def main(file_path):
     target_motion = SkeletonMotion.from_skeleton_state(new_sk_state, fps=target_motion.fps)
 
     # save retargeted motion
-    target_motion.to_file(os.path.join(dir, retarget_data["target_motion_path"]))
+    print(filename)
+    filename = filename.split(".")[0] + ("_atlas.npy" if is_atlas else "_amp.npy")
+    print(filename)
+    target_motion.to_file(os.path.join(dir, retarget_data["target_motion_path"], filename))
 
     # visualize retargeted motion
-    #plot_skeleton_motion_interactive(target_motion)
+    if visualize:
+        plot_skeleton_motion_interactive(target_motion)
 
     return
 
 if __name__ == "__main__":
-    file_path = "data/configs/retarget_cmu_bvh_to_amp.json"
-    if len(sys.argv) > 1:
-        file_path = sys.argv[1]
-    main(file_path)
+    visaulize = False
+    config_path = "data/configs/retarget_cmu_bvh_to_amp.json"
+    filename = "02_01.npy"
+    if len(sys.argv) > 2:
+        config_path = sys.argv[1]
+        filename = sys.argv[2]
+    if len(sys.argv) > 3:
+        if sys.argv[3] == 'y':
+            visaulize = True
+    main(config_path, filename, visaulize)

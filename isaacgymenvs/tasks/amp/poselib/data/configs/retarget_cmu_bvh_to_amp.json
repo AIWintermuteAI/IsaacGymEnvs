@@ -1,6 +1,6 @@
 {
-    "source_motion": "data/16_39.npy",
-    "target_motion_path": "data/16_39_amp.npy",
+    "source_motion": "data/",
+    "target_motion_path": "../../../data/motions/",
     "source_tpose": "data/cmu_tpose.npy",
     "target_tpose": "data/amp_humanoid_tpose.npy",
     "joint_mapping": {

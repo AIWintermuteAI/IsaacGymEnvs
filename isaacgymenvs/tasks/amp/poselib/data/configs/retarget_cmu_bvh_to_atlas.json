@@ -1,6 +1,6 @@
 {
-    "source_motion": "data/02_01.npy",
-    "target_motion_path": "../../../data/motions/02_01_amp.npy",
+    "source_motion": "data/",
+    "target_motion_path": "../../../data/motions/",
     "source_tpose": "data/cmu_tpose.npy",
     "target_tpose": "data/atlas_v4_with_multisense.npy",
     "joint_mapping": {
@@ -14,15 +14,15 @@
          "Chest": "ltorso",
          "Head": "head",
          "LeftShoulder": "l_clav",
-         "LeftElbow": "l_ufarm",
+         "LeftElbow": "l_lfarm",
          "lhand": "l_hand",
          "RightShoulder": "r_clav",
-         "RightElbow": "r_ufarm",
+         "RightElbow": "r_lfarm",
          "rhand": "r_hand"
     },
     "rotation": [0, 0, 0.7071068, 0.7071068],
     "scale": 0.056444,
-	"root_height_offset": -0.075,
+	"root_height_offset": 0.05,
 	"trim_frame_beg": 0,
 	"trim_frame_end": 600
 }

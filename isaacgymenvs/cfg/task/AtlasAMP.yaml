@@ -20,8 +20,8 @@ env:
   cameraFollow: True # if the camera follows humanoid or not
   enableDebugVis: False
 
-  pdControl: False
-  powerScale: 10.0
+  pdControl: True
+  powerScale: 1.0
   controlFrequencyInv: 2 # 30 Hz
   stateInit: "Random"
   hybridInitProb: 0.5
@@ -42,17 +42,10 @@ env:
   enableEarlyTermination: True
 
   # animation files to learn from
-  # these motions should use hyperparameters from HumanoidAMPPPO.yaml
-  #motion_file: "amp_humanoid_walk.npy"
-  #motion_file: "amp_humanoid_run.npy"
-  #motion_file: "amp_humanoid_dance.npy"
-  motion_file: "02_01_amp.npy"
+  motion_file: "standing_atlas.npy"
+  #motion_file: "walking_atlas.npy"
   #motion_file: "16_37_amp.npy"
-  #motion_file: "dataset_humanoid.yaml"
-
-  # these motions should use hyperparameters from HumanoidAMPPPOLowGP.yaml
-  #motion_file: "amp_humanoid_hop.npy"
-  #motion_file: "amp_humanoid_backflip.npy"
+  #motion_file: "dataset_atlas.yaml"
 
   asset:
     assetFileName: "urdf/atlas/urdf/atlas_v4_with_multisense.urdf"
