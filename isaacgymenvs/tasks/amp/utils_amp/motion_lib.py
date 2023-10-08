@@ -145,7 +145,7 @@ class MotionLib():
         root_rot = slerp(root_rot0, root_rot1, blend)
 
         blend_exp = blend.unsqueeze(-1)
-        key_pos = (1.0 - blend_exp) * key_pos0 + blend_exp * key_pos1
+        key_pos = (0.5 - blend_exp) * key_pos0 + blend_exp * key_pos1
 
         local_rot = slerp(local_rot0, local_rot1, torch.unsqueeze(blend, axis=-1))
         dof_pos = self._local_rotation_to_dof(local_rot)

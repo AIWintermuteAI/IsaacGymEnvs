@@ -126,10 +126,14 @@ class AtlasAMP(AtlasAMPBase):
         motion_times = motion_times.flatten()
         root_pos, root_rot, dof_pos, root_vel, root_ang_vel, dof_vel, key_pos \
                = self._motion_lib.get_motion_state(motion_ids, motion_times)
-        #root_pos[..., :2] += 0.4
+        #root_vel[..., :0] += 1.0
         root_states = torch.cat([root_pos, root_rot, root_vel, root_ang_vel], dim=-1)
+
+        key_pos = torch.zeros_like(key_pos).to(self.device)
+
         amp_obs_demo = build_amp_observations(root_states, dof_pos, dof_vel, key_pos,
                                       self._local_root_obs)
+        #print(root_vel[0])
         self._amp_obs_demo_buf[:] = amp_obs_demo.view(self._amp_obs_demo_buf.shape)
 
         amp_obs_demo_flat = self._amp_obs_demo_buf.view(-1, self.get_num_amp_obs())

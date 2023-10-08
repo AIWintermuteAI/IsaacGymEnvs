@@ -270,10 +270,10 @@ class AtlasAMPBase(VecTask):
             asset_file = self.cfg["env"]["asset"].get("assetFileName", asset_file)
 
         asset_options = gymapi.AssetOptions()
-        asset_options.density = 0.001
+        asset_options.density = 1141
         asset_options.angular_damping = 0.4
         asset_options.linear_damping = 0.0
-        asset_options.armature = 0.0
+        asset_options.armature = 0.01
         asset_options.thickness = 0.01
         asset_options.flip_visual_attachments = True
         if (self._pd_control):
@@ -481,6 +481,7 @@ class AtlasAMPBase(VecTask):
             dof_vel = self._dof_vel[env_ids]
             key_body_pos = self._rigid_body_pos[env_ids][:, self._key_body_ids, :]
 
+        key_body_pos = torch.zeros_like(key_body_pos).to(self.device)
         obs = compute_humanoid_observations(root_states, dof_pos, dof_vel,
                                             key_body_pos, self._local_root_obs)
         return obs
