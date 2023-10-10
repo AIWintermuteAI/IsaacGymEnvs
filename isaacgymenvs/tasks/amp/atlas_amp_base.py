@@ -65,45 +65,32 @@ body_ids_offsets = {
     #22: { "offset" : 29, "size": 1, 'axis': 0},
 
     # torso
-    1: { "offset" : 0, "size": 3, 'axis': -1},
-    1: { "offset" : 1, "size": 0, 'axis': -1},
-    1: { "offset" : 2, "size": 0, 'axis': -1},
+    1: { "offset" : 0, "size": 1, 'axis': 0},
+    1: { "offset" : 1, "size": 1, 'axis': 1},
+    1: { "offset" : 2, "size": 1, 'axis': 2},
     # head
     12: { "offset" : 10, "size": 0, 'axis': -1},
 
     # left arm
     10: { "offset" : 4, "size": 3, 'axis': 0},
-    #19: { "offset" : 3, "size": 1, 'axis': 2},
+    #10: { "offset" : 4, "size": 1, 'axis': 0},
     25: { "offset" : 5, "size": 1, 'axis': 1},
     25: { "offset" : 6, "size": 1, 'axis': 0},
     29: { "offset" : 7, "size": 1, 'axis': 1},
     29: { "offset" : 8, "size": 1, 'axis': 0},
     # right arm
     13: { "offset" : 12, "size": 3, 'axis': 0},
-    #13: { "offset" : 11, "size": 1, 'axis': 2},
+    #13: { "offset" : 12, "size": 1, 'axis': 0},
     26: { "offset" : 13, "size": 1, 'axis': 1},
     26: { "offset" : 14, "size": 1, 'axis': 0},
     30: { "offset" : 15, "size": 1, 'axis': 1},
     30: { "offset" : 16, "size": 1, 'axis': 0},
 }
 
-KEY_BODY_NAMES = ["r_foot", "l_foot"]
-#KEY_BODY_NAMES = ["r_hand", "l_hand", "r_foot", "l_foot"]
-
-NUM_OBS = 98 + (len(KEY_BODY_NAMES) * 3) #13 + 52 + 28 + 12 # [root_h, root_rot, root_vel, root_ang_vel, dof_pos, dof_vel, key_body_pos]
-NUM_ACTIONS = 30
-
 class AtlasAMPBase(VecTask):
 
     def __init__(self, config, rl_device, sim_device, graphics_device_id, headless, virtual_screen_capture, force_render):
         self.cfg = config
-
-        self.body_ids_map = {
-            10: 11, # l_hand - left_hand
-            18: 14, # r_hand - right_hand
-            24: 3, # l_foot - left_foot
-            30: 6 #r_foot - left_foot
-        }
 
         self._pd_control = self.cfg["env"]["pdControl"]
         self.power_scale = self.cfg["env"]["powerScale"]
@@ -118,8 +105,13 @@ class AtlasAMPBase(VecTask):
         self.max_episode_length = self.cfg["env"]["episodeLength"]
         self._local_root_obs = self.cfg["env"]["localRootObs"]
         self._contact_bodies = self.cfg["env"]["contactBodies"]
+        self.key_body_names = self.cfg["env"]["keyBodyNames"]
         self._termination_height = self.cfg["env"]["terminationHeight"]
         self._enable_early_termination = self.cfg["env"]["enableEarlyTermination"]
+
+        # [root_h, root_rot, root_vel, root_ang_vel, dof_pos, dof_vel, key_body_pos]
+        self.obs_num = 98 + (len(self.key_body_names) * 3) #13 + 52 + 28 + 12
+        self.actions_num = 30
 
         self.cfg["env"]["numObservations"] = self.get_obs_size()
         self.cfg["env"]["numActions"] = self.get_action_size()
@@ -202,10 +194,10 @@ class AtlasAMPBase(VecTask):
         return
 
     def get_obs_size(self):
-        return NUM_OBS
+        return self.obs_num
 
     def get_action_size(self):
-        return NUM_ACTIONS
+        return self.actions_num
 
     def create_sim(self):
         self.up_axis_idx = 2 # index of up axis: Y=1, Z=2
@@ -266,7 +258,6 @@ class AtlasAMPBase(VecTask):
         asset_file = "mjcf/amp_humanoid.xml"
 
         if "asset" in self.cfg["env"]:
-            #asset_root = self.cfg["env"]["asset"].get("assetRoot", asset_root)
             asset_file = self.cfg["env"]["asset"].get("assetFileName", asset_file)
 
         asset_options = gymapi.AssetOptions()
@@ -483,7 +474,7 @@ class AtlasAMPBase(VecTask):
 
         key_body_pos = torch.zeros_like(key_body_pos).to(self.device)
         obs = compute_humanoid_observations(root_states, dof_pos, dof_vel,
-                                            key_body_pos, self._local_root_obs)
+                                            key_body_pos, self._local_root_obs, body_ids_offsets)
         return obs
 
     def _reset_actors(self, env_ids):
@@ -543,7 +534,7 @@ class AtlasAMPBase(VecTask):
 
     def _build_key_body_ids_tensor(self, env_ptr, actor_handle):
         body_ids = []
-        for body_name in KEY_BODY_NAMES:
+        for body_name in self.key_body_names:
             body_id = self.gym.find_actor_rigid_body_handle(env_ptr, actor_handle, body_name)
             assert(body_id != -1)
             body_ids.append(body_id)
@@ -605,45 +596,9 @@ class AtlasAMPBase(VecTask):
 #####################################################################
 
 @torch.jit.script
-def dof_to_obs(pose):
-    # type: (Tensor) -> Tensor
+def dof_to_obs(pose, body_ids_offsets):
+    # type: (Tensor, Dict[int, Dict[str, int]]) -> Tensor
     dof_obs_size = 52
-
-    body_ids_offsets = {
-        # axis: x 0 y 1 z 2
-
-        # left leg
-        # hip
-        2: { "offset" : 20, "size": 1, 'axis': 1},
-        # knee
-        8: { "offset" : 21, "size": 1, 'axis': 1},
-        # foot
-        16: { "offset" : 22, "size": 1, 'axis': 1},
-
-        # right leg
-        # hip
-        3: { "offset" : 26, "size": 1, 'axis': 1},
-        # knee
-        9: { "offset" : 27, "size": 1, 'axis': 1},
-        # foot
-        18: { "offset" : 28, "size": 1, 'axis': 1},
-
-        # torso
-        1: { "offset" : 0, "size": 3, 'axis': -1},
-        1: { "offset" : 1, "size": 0, 'axis': -1},
-        1: { "offset" : 2, "size": 0, 'axis': -1},
-        # head
-        12: { "offset" : 10, "size": 0, 'axis': -1},
-
-        # left arm
-        19: { "offset" : 4, "size": 0, 'axis': 0},
-        25: { "offset" : 5, "size": 0, 'axis': 1},
-        29: { "offset" : 8, "size": 0, 'axis': 0},
-        # right arm
-        21: { "offset" : 12, "size": 0, 'axis': 0},
-        26: { "offset" : 13, "size": 0, 'axis': 1},
-        30: { "offset" : 16, "size": 0, 'axis': 0},
-    }
 
     dof_obs_shape = pose.shape[:-1] + (dof_obs_size,)
     dof_obs = torch.zeros(dof_obs_shape, device=pose.device)
@@ -670,14 +625,15 @@ def dof_to_obs(pose):
             joint_dof_obs = joint_pose
             dof_obs_size = 0
             assert(False)
-        dof_obs[:, dof_obs_offset:(dof_obs_offset + dof_obs_size)] = joint_dof_obs
-        dof_obs_offset += dof_obs_size
+        if dof_obs_size:
+            dof_obs[:, dof_offset:(dof_offset + dof_obs_size)] = joint_dof_obs
+        #dof_obs_offset += dof_obs_size
 
     return dof_obs
 
 @torch.jit.script
-def compute_humanoid_observations(root_states, dof_pos, dof_vel, key_body_pos, local_root_obs):
-    # type: (Tensor, Tensor, Tensor, Tensor, bool) -> Tensor
+def compute_humanoid_observations(root_states, dof_pos, dof_vel, key_body_pos, local_root_obs, body_ids_offsets):
+    # type: (Tensor, Tensor, Tensor, Tensor, bool, Dict[int, Dict[str, int]]) -> Tensor
     root_pos = root_states[:, 0:3]
     root_rot = root_states[:, 3:7]
     root_vel = root_states[:, 7:10]
@@ -706,7 +662,7 @@ def compute_humanoid_observations(root_states, dof_pos, dof_vel, key_body_pos, l
     local_end_pos = my_quat_rotate(flat_heading_rot, flat_end_pos)
     flat_local_key_pos = local_end_pos.view(local_key_body_pos.shape[0], local_key_body_pos.shape[1] * local_key_body_pos.shape[2])
 
-    dof_obs = dof_to_obs(dof_pos)
+    dof_obs = dof_to_obs(dof_pos, body_ids_offsets)
     #print(dof_obs)
 
     obs = torch.cat((root_h, root_rot_obs, local_root_vel, local_root_ang_vel, dof_obs, dof_vel, flat_local_key_pos), dim=-1)
@@ -727,36 +683,19 @@ def compute_humanoid_reset(reset_buf, progress_buf, contact_buf, contact_body_id
 
     if (enable_early_termination):
         masked_contact_buf = contact_buf.clone()
-        #feet_no_contact = torch.all(masked_contact_buf[:, contact_body_ids, :] <= 0.0, dim=-1)
-        #feet_no_contact = torch.all(feet_no_contact, dim=-1)
 
         masked_contact_buf[:, contact_body_ids, :] = 0
         fall_contact = torch.any(masked_contact_buf > 0.1, dim=-1)
         fall_contact = torch.any(fall_contact, dim=-1)
 
         body_height = rigid_body_pos[..., 2]
-        #print(body_height[0])
         fall_height = body_height < termination_height
         fly_height = body_height > termination_height*3
-        #fall_height[:, contact_body_ids] = False
-        #fall_height = torch.any(fall_height, dim=-1)
 
-        #feet_no_contact *= (progress_buf > 3)
         has_fallen_or_flying = torch.logical_or(fall_height, fly_height)
-        #feet_in_the_air_body_contact = torch.logical_or(feet_no_contact, fall_contact)
 
         terminate = torch.logical_or(has_fallen_or_flying, fall_contact)
 
-        #if feet_no_contact[0]:
-        #    print("feet_no_contact")
-        #if fall_contact[0]:
-        #    print("fall_contact")
-        #if fall_height[0]:
-        #    print("fall_height")
-        #if fly_height[0]:
-        #    print("fly_height")
-        #if terminate[0]:
-        #    print("terminate")
         # first timestep can sometimes still have nonzero contact forces
         # so only check after first couple of steps
         terminate *= (progress_buf > 1)

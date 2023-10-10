@@ -1,0 +1,5 @@
+motions:
+  - file: "09_11_cmu_atlas.npy"
+    weight: 0.5
+  - file: "07_01_cmu_atlas.npy"
+    weight: 0.5

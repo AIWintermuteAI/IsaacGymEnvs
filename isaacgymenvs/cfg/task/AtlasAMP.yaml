@@ -27,25 +27,23 @@ env:
   hybridInitProb: 0.5
   numAMPObsSteps: 2
 
-  control:
-    # PD Drive parameters:
-    stiffness: 85.0  # [N*m/rad]
-    damping: 4.0     # [N*m*s/rad]
-    # action scale: target angle = actionScale * action + defaultAngle
-    actionScale: 0.75
-    # decimation: Number of control action updates @ sim DT per policy DT
-    decimation: 4
+  # PD Drive parameters:
+  stiffness: 85.0  # [N*m/rad]
+  damping: 4.0     # [N*m*s/rad]
 
   localRootObs: False
   contactBodies: ["r_foot", "l_foot"]
+  keyBodyNames: ["r_foot", "l_foot"]
+  #keyBodyNames: ["r_hand", "l_hand", "r_foot", "l_foot"]
   terminationHeight: 0.5
   enableEarlyTermination: True
 
   # animation files to learn from
-  motion_file: "standing_atlas.npy"
+  #motion_file: "standing_atlas.npy"
   #motion_file: "walking_atlas.npy"
+  #motion_file: "07_01_cmu_atlas.npy"
   #motion_file: "16_37_amp.npy"
-  #motion_file: "dataset_atlas.yaml"
+  motion_file: "dataset_atlas.yaml"
 
   asset:
     assetFileName: "urdf/atlas/urdf/atlas_v4_with_multisense.urdf"
@@ -56,7 +54,7 @@ env:
     restitution: 0.0
 
 task:
-  enable: False
+  enable: True
   randomCommandVelocityRanges:
     # train
     linear_x: [0., 2.] # min max [m/s]
@@ -87,7 +85,7 @@ task:
         schedule: "linear"  # "linear" will linearly interpolate between no rand and max rand
         schedule_steps: 3000
     actor_params:
-      humanoid:
+      atlas:
         color: True
         rigid_body_properties:
           mass:

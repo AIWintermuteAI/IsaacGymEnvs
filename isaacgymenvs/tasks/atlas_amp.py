@@ -43,9 +43,7 @@ from isaacgymenvs.tasks.amp.utils_amp.motion_lib import MotionLib
 from isaacgym.torch_utils import *
 from isaacgymenvs.utils.torch_jit_utils import *
 
-from isaacgymenvs.tasks.amp.atlas_amp_base import body_ids_offsets, KEY_BODY_NAMES
-
-NUM_AMP_OBS_PER_STEP = 95 + (len(KEY_BODY_NAMES) * 3) #13 + 52 + 28 + 12 # [root_h, root_rot, root_vel, root_ang_vel, dof_pos, dof_vel, key_body_pos]
+from isaacgymenvs.tasks.amp.atlas_amp_base import body_ids_offsets
 
 class AtlasAMP(AtlasAMPBase):
 
@@ -69,15 +67,18 @@ class AtlasAMP(AtlasAMPBase):
 
         super().__init__(config=self.cfg, rl_device=rl_device, sim_device=sim_device, graphics_device_id=graphics_device_id, headless=headless, virtual_screen_capture=virtual_screen_capture, force_render=force_render)
 
+        self.num_amp_obs_steps = 95 + (len(self.key_body_names) * 3)
+        #13 + 52 + 28 + 12 # [root_h, root_rot, root_vel, root_ang_vel, dof_pos, dof_vel, key_body_pos]
+
         motion_file = cfg['env'].get('motion_file', "amp_humanoid_backflip.npy")
         motion_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../data/motions/" + motion_file)
         self._load_motion(motion_file_path)
 
-        self.num_amp_obs = self._num_amp_obs_steps * NUM_AMP_OBS_PER_STEP
+        self.num_amp_obs = self._num_amp_obs_steps * self.num_amp_obs_steps
 
         self._amp_obs_space = spaces.Box(np.ones(self.num_amp_obs) * -np.Inf, np.ones(self.num_amp_obs) * np.Inf)
 
-        self._amp_obs_buf = torch.zeros((self.num_envs, self._num_amp_obs_steps, NUM_AMP_OBS_PER_STEP), device=self.device, dtype=torch.float)
+        self._amp_obs_buf = torch.zeros((self.num_envs, self._num_amp_obs_steps, self.num_amp_obs_steps), device=self.device, dtype=torch.float)
         self._curr_amp_obs_buf = self._amp_obs_buf[:, 0]
         self._hist_amp_obs_buf = self._amp_obs_buf[:, 1:]
 
@@ -132,7 +133,7 @@ class AtlasAMP(AtlasAMPBase):
         key_pos = torch.zeros_like(key_pos).to(self.device)
 
         amp_obs_demo = build_amp_observations(root_states, dof_pos, dof_vel, key_pos,
-                                      self._local_root_obs)
+                                      self._local_root_obs, body_ids_offsets)
         #print(root_vel[0])
         self._amp_obs_demo_buf[:] = amp_obs_demo.view(self._amp_obs_demo_buf.shape)
 
@@ -140,7 +141,7 @@ class AtlasAMP(AtlasAMPBase):
         return amp_obs_demo_flat
 
     def _build_amp_obs_demo_buf(self, num_samples):
-        self._amp_obs_demo_buf = torch.zeros((num_samples, self._num_amp_obs_steps, NUM_AMP_OBS_PER_STEP), device=self.device, dtype=torch.float)
+        self._amp_obs_demo_buf = torch.zeros((num_samples, self._num_amp_obs_steps, self.num_amp_obs_steps), device=self.device, dtype=torch.float)
         return
 
 
@@ -272,7 +273,7 @@ class AtlasAMP(AtlasAMPBase):
                = self._motion_lib.get_motion_state(motion_ids, motion_times)
         root_states = torch.cat([root_pos, root_rot, root_vel, root_ang_vel], dim=-1)
         amp_obs_demo = build_amp_observations(root_states, dof_pos, dof_vel, key_pos,
-                                      self._local_root_obs)
+                                      self._local_root_obs, body_ids_offsets)
         self._hist_amp_obs_buf[env_ids] = amp_obs_demo.view(self._hist_amp_obs_buf[env_ids].shape)
         return
 
@@ -303,11 +304,11 @@ class AtlasAMP(AtlasAMPBase):
         key_body_pos = self._rigid_body_pos[:, self._key_body_ids, :]
         if (env_ids is None):
             self._curr_amp_obs_buf[:] = build_amp_observations(self._root_states, self._dof_pos, self._dof_vel, key_body_pos,
-                                                                self._local_root_obs)
+                                                                self._local_root_obs, body_ids_offsets)
         else:
             self._curr_amp_obs_buf[env_ids] = build_amp_observations(self._root_states[env_ids], self._dof_pos[env_ids],
                                                                     self._dof_vel[env_ids], key_body_pos[env_ids],
-                                                                    self._local_root_obs)
+                                                                    self._local_root_obs, body_ids_offsets)
         return
 
 
@@ -316,8 +317,8 @@ class AtlasAMP(AtlasAMPBase):
 #####################################################################
 
 @torch.jit.script
-def build_amp_observations(root_states, dof_pos, dof_vel, key_body_pos, local_root_obs):
-    # type: (Tensor, Tensor, Tensor, Tensor, bool) -> Tensor
+def build_amp_observations(root_states, dof_pos, dof_vel, key_body_pos, local_root_obs, body_ids_offsets):
+    # type: (Tensor, Tensor, Tensor, Tensor, bool, Dict[int, Dict[str, int]]) -> Tensor
     root_pos = root_states[:, 0:3]
     root_rot = root_states[:, 3:7]
     root_vel = root_states[:, 7:10]
@@ -346,11 +347,8 @@ def build_amp_observations(root_states, dof_pos, dof_vel, key_body_pos, local_ro
     local_end_pos = my_quat_rotate(flat_heading_rot, flat_end_pos)
     flat_local_key_pos = local_end_pos.view(local_key_body_pos.shape[0], local_key_body_pos.shape[1] * local_key_body_pos.shape[2])
 
-    dof_obs = dof_to_obs(dof_pos)
+    dof_obs = dof_to_obs(dof_pos, body_ids_offsets)
 
     obs = torch.cat((root_h, root_rot_obs, local_root_vel, local_root_ang_vel, dof_obs, dof_vel, flat_local_key_pos), dim=-1)
     #print(root_h.shape, root_rot_obs.shape)
     return obs
-
-#     "scale": 0.102212722,
-#     "root_height_offset": -0.1,

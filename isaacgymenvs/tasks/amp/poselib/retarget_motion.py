@@ -51,18 +51,18 @@ DEBUG= False
 
 def project_joints(motion, is_atlas):
     if is_atlas:
-        right_upper_arm_id = motion.skeleton_tree._node_indices["r_uarm"]
-        right_lower_arm_id = motion.skeleton_tree._node_indices["r_ufarm"]
+        right_upper_arm_id = motion.skeleton_tree._node_indices["r_clav"]
+        right_lower_arm_id = motion.skeleton_tree._node_indices["r_larm"]
         right_hand_id = motion.skeleton_tree._node_indices["r_hand"]
-        left_upper_arm_id = motion.skeleton_tree._node_indices["l_uarm"]
-        left_lower_arm_id = motion.skeleton_tree._node_indices["l_ufarm"]
+        left_upper_arm_id = motion.skeleton_tree._node_indices["l_clav"]
+        left_lower_arm_id = motion.skeleton_tree._node_indices["l_larm"]
         left_hand_id = motion.skeleton_tree._node_indices["l_hand"]
 
-        right_thigh_id = motion.skeleton_tree._node_indices["r_uleg"]
-        right_shin_id = motion.skeleton_tree._node_indices["r_lleg"]
+        right_thigh_id = motion.skeleton_tree._node_indices["r_uglut"]
+        right_shin_id = motion.skeleton_tree._node_indices["r_uleg"]
         right_foot_id = motion.skeleton_tree._node_indices["r_foot"]
-        left_thigh_id = motion.skeleton_tree._node_indices["l_uleg"]
-        left_shin_id = motion.skeleton_tree._node_indices["l_lleg"]
+        left_thigh_id = motion.skeleton_tree._node_indices["l_uglut"]
+        left_shin_id = motion.skeleton_tree._node_indices["l_uleg"]
         left_foot_id = motion.skeleton_tree._node_indices["l_foot"]
     else:
         right_upper_arm_id = motion.skeleton_tree._node_indices["right_upper_arm"]
