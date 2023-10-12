@@ -283,6 +283,8 @@ class SkeletonTree(Serializable):
                 if parent_link in parents:
                     link_parents[child_link] = parent_link
                     children.append(child_link)
+                    #pos = np.fromstring(joint_node.find('origin').attrib["xyz"], dtype=float, sep=" ")
+                    #local_translation.append(pos)
                     local_translation.append(find_translation(root, child_link))
                     node_idx += 1
                     print(f"Node: {child_link} Idx: {node_idx}")
@@ -294,7 +296,7 @@ class SkeletonTree(Serializable):
 
         link_parents["pelvis"] = "root"
         node_names.append("pelvis")
-        local_translation.append(find_translation(root, "pelvis"))
+        local_translation.append(np.asarray([0,0,0], dtype=np.float32))
 
         return_children(root, node_names[0], 0)
 

@@ -33,6 +33,7 @@ env:
 
   localRootObs: False
   contactBodies: ["r_foot", "l_foot"]
+  #keyBodyNames: []
   keyBodyNames: ["r_foot", "l_foot"]
   #keyBodyNames: ["r_hand", "l_hand", "r_foot", "l_foot"]
   terminationHeight: 0.5
@@ -42,7 +43,7 @@ env:
   #motion_file: "standing_atlas.npy"
   #motion_file: "walking_atlas.npy"
   #motion_file: "07_01_cmu_atlas.npy"
-  #motion_file: "16_37_amp.npy"
+  #motion_file: "09_11_cmu_atlas.npy"
   motion_file: "dataset_atlas.yaml"
 
   asset:
@@ -57,7 +58,7 @@ task:
   enable: True
   randomCommandVelocityRanges:
     # train
-    linear_x: [0., 2.] # min max [m/s]
+    linear_x: [1., 3.] # min max [m/s]
     yaw: [0, 0]    # min max [rad/s]
 
   learn:
@@ -86,7 +87,7 @@ task:
         schedule_steps: 3000
     actor_params:
       atlas:
-        color: True
+        color: False
         rigid_body_properties:
           mass:
             range: [0.5, 1.5]

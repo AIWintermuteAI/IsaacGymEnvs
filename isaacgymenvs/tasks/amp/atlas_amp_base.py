@@ -94,6 +94,9 @@ class AtlasAMPBase(VecTask):
 
         self._pd_control = self.cfg["env"]["pdControl"]
         self.power_scale = self.cfg["env"]["powerScale"]
+
+        # randomization
+        self.randomization_params = self.cfg["task"]["randomization_params"]
         self.randomize = self.cfg["task"]["randomize"]
 
         self.debug_viz = self.cfg["env"]["enableDebugVis"]
