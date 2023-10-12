@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2022, NVIDIA Corporation
+# Copyright (c) 2021-2023, NVIDIA Corporation
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -32,9 +32,8 @@ import torch
 
 from isaacgym import gymtorch
 from isaacgym import gymapi
-from isaacgym.torch_utils import *
 
-from isaacgymenvs.utils.torch_jit_utils import *
+from isaacgymenvs.utils.torch_jit_utils import quat_mul, to_torch, tensor_clamp  
 from isaacgymenvs.tasks.base.vec_task import VecTask
 
 

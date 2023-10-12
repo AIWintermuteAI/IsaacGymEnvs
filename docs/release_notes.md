@@ -1,12 +1,42 @@
 Release Notes
 =============
 
+1.5.0
+-----
+
+* Added [IndustReal](https://sites.google.com/nvidia.com/industreal) environments: IndustRealTaskPegsInsert and IndustRealTaskGearsInsert.
+* Updated hydra version to 1.2.
+
+1.4.0
+-----
+
+* Added [DexPBT](https://sites.google.com/view/dexpbt) (population based training) code and new AllegroKuka and AllegroKukaTwoArms environments.
+* Added multi-node training support.
+* Updated Allegro Hand assets.
+* Fixed AMP save/load weights issue.
+* Migrated Isaac Gym isaacgym.torch_utils to isaacgymenvs.utils.torch_jit_utils.
+* Added record frames feature.
+
+1.3.4
+-----
+
+* Fixed bug when running inferencing on DeXtreme environments.
+* Fixed links in examples documentation.
+* Minor fixes in documentation.
+
+1.3.3
+-----
+
+* Fixed player and bug with AMP training environments.
+* Added [DeXtreme](https://dextreme.org/) environments with ADR support.
+
 1.3.2
 -----
 
 * Switched all environments that use contacts to use CC_LAST_SUBSTEP collection mode to avoid bug with CC_ALL_SUBSTEP mode. The CC_ALL_SUBSTEP mode can produce incorrect contact forces. Only HumanoidAMP and Factory environments are affected by this. 
 * Added SAC training examples for Ant and Humanoid envs. To run: ``python train.py task=AntSAC train=AntSAC`` and ``python train.py task=HumanoidSAC train=HumanoidSAC``
 * Fix shadow hand and allegro hand random joint position sampling on reset.
+* Switched to using IsaacAlgoObserver from rl_games instead of the custom RLGPUAlgoObserver.
 
 1.3.1
 -----

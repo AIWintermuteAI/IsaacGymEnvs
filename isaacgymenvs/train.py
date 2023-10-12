@@ -1,7 +1,7 @@
 # train.py
 # Script to train policies in Isaac Gym
 #
-# Copyright (c) 2018-2022, NVIDIA Corporation
+# Copyright (c) 2018-2023, NVIDIA Corporation
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -29,26 +29,67 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import datetime
-import isaacgym
-
-import os
 import hydra
-import yaml
+
 from omegaconf import DictConfig, OmegaConf
-from hydra.utils import to_absolute_path
-import gym
+from omegaconf import DictConfig, OmegaConf
 
-from isaacgymenvs.utils.reformat import omegaconf_to_dict, print_dict
 
-from isaacgymenvs.utils.utils import set_np_formatting, set_seed
+def preprocess_train_config(cfg, config_dict):
+    """
+    Adding common configuration parameters to the rl_games train config.
+    An alternative to this is inferring them in task-specific .yaml files, but that requires repeating the same
+    variable interpolations in each config.
+    """
 
-## OmegaConf & Hydra Config
+    train_cfg = config_dict['params']['config']
 
-# Resolvers used in hydra configs (see https://omegaconf.readthedocs.io/en/2.1_branch/usage.html#resolvers)
-@hydra.main(config_name="config", config_path="./cfg")
+    train_cfg['device'] = cfg.rl_device
+
+    train_cfg['population_based_training'] = cfg.pbt.enabled
+    train_cfg['pbt_idx'] = cfg.pbt.policy_idx if cfg.pbt.enabled else None
+
+    train_cfg['full_experiment_name'] = cfg.get('full_experiment_name')
+
+    print(f'Using rl_device: {cfg.rl_device}')
+    print(f'Using sim_device: {cfg.sim_device}')
+    print(train_cfg)
+
+    try:
+        model_size_multiplier = config_dict['params']['network']['mlp']['model_size_multiplier']
+        if model_size_multiplier != 1:
+            units = config_dict['params']['network']['mlp']['units']
+            for i, u in enumerate(units):
+                units[i] = u * model_size_multiplier
+            print(f'Modified MLP units by x{model_size_multiplier} to {config_dict["params"]["network"]["mlp"]["units"]}')
+    except KeyError:
+        pass
+
+    return config_dict
+
+
+@hydra.main(version_base="1.1", config_name="config", config_path="./cfg")
 def launch_rlg_hydra(cfg: DictConfig):
-    from isaacgymenvs.utils.rlgames_utils import RLGPUEnv, RLGPUAlgoObserver, get_rlgames_env_creator
+
+    import logging
+    import os
+    from datetime import datetime
+
+    # noinspection PyUnresolvedReferences
+    import isaacgym
+    from isaacgymenvs.pbt.pbt import PbtAlgoObserver, initial_pbt_check
+    from isaacgymenvs.utils.rlgames_utils import multi_gpu_get_rank
+    from hydra.utils import to_absolute_path
+    from isaacgymenvs.tasks import isaacgym_task_map
+    import gym
+    from isaacgymenvs.utils.reformat import omegaconf_to_dict, print_dict
+    from isaacgymenvs.utils.utils import set_np_formatting, set_seed
+
+    if cfg.pbt.enabled:
+        initial_pbt_check(cfg)
+
+    from isaacgymenvs.utils.rlgames_utils import RLGPUEnv, RLGPUAlgoObserver, MultiObserver, ComplexObsRLGPUEnv
+    from isaacgymenvs.utils.wandb_utils import WandbAlgoObserver
     from rl_games.common import env_configurations, vecenv
     from rl_games.torch_runner import Runner
     from rl_games.algos_torch import model_builder
@@ -58,7 +99,8 @@ def launch_rlg_hydra(cfg: DictConfig):
     from isaacgymenvs.learning import amp_network_builder
     import isaacgymenvs
 
-    time_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+    time_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     run_name = f"{cfg.wandb_name}_{time_str}"
 
     # ensure checkpoints can be specified as relative paths
@@ -71,32 +113,13 @@ def launch_rlg_hydra(cfg: DictConfig):
     # set numpy formatting for printing only
     set_np_formatting()
 
-    rank = int(os.getenv("LOCAL_RANK", "0"))
-    if cfg.multi_gpu:
-        # torchrun --standalone --nnodes=1 --nproc_per_node=2 train.py
-        cfg.sim_device = f'cuda:{rank}'
-        cfg.rl_device = f'cuda:{rank}'
+    # global rank of the GPU
+    global_rank = int(os.getenv("RANK", "0"))
 
     # sets seed. if seed is -1 will pick a random one
-    cfg.seed += rank
-    cfg.seed = set_seed(cfg.seed, torch_deterministic=cfg.torch_deterministic, rank=rank)
+    cfg.seed = set_seed(cfg.seed, torch_deterministic=cfg.torch_deterministic, rank=global_rank)
 
-    if cfg.wandb_activate and rank == 0:
-        # Make sure to install WandB if you actually use this.
-        import wandb
-
-        run = wandb.init(
-            project=cfg.wandb_project,
-            group=cfg.wandb_group,
-            entity=cfg.wandb_entity,
-            config=cfg_dict,
-            sync_tensorboard=True,
-            name=run_name,
-            resume="allow",
-            monitor_gym=True,
-        )
-
-    def create_env_thunk(**kwargs):
+    def create_isaacgym_env(**kwargs):
         envs = isaacgymenvs.make(
             cfg.seed, 
             cfg.task_name, 
@@ -121,13 +144,43 @@ def launch_rlg_hydra(cfg: DictConfig):
             )
         return envs
 
-    # register the rl-games adapter to use inside the runner
-    vecenv.register('RLGPU',
-                    lambda config_name, num_actors, **kwargs: RLGPUEnv(config_name, num_actors, **kwargs))
     env_configurations.register('rlgpu', {
         'vecenv_type': 'RLGPU',
-        'env_creator': create_env_thunk,
+        'env_creator': lambda **kwargs: create_isaacgym_env(**kwargs),
     })
+
+    ige_env_cls = isaacgym_task_map[cfg.task_name]
+    dict_cls = ige_env_cls.dict_obs_cls if hasattr(ige_env_cls, 'dict_obs_cls') and ige_env_cls.dict_obs_cls else False
+
+    if dict_cls:
+        
+        obs_spec = {}
+        actor_net_cfg = cfg.train.params.network
+        obs_spec['obs'] = {'names': list(actor_net_cfg.inputs.keys()), 'concat': not actor_net_cfg.name == "complex_net", 'space_name': 'observation_space'}
+        if "central_value_config" in cfg.train.params.config:
+            critic_net_cfg = cfg.train.params.config.central_value_config.network
+            obs_spec['states'] = {'names': list(critic_net_cfg.inputs.keys()), 'concat': not critic_net_cfg.name == "complex_net", 'space_name': 'state_space'}
+        
+        vecenv.register('RLGPU', lambda config_name, num_actors, **kwargs: ComplexObsRLGPUEnv(config_name, num_actors, obs_spec, **kwargs))
+    else:
+
+        vecenv.register('RLGPU', lambda config_name, num_actors, **kwargs: RLGPUEnv(config_name, num_actors, **kwargs))
+
+    rlg_config_dict = omegaconf_to_dict(cfg.train)
+    rlg_config_dict = preprocess_train_config(cfg, rlg_config_dict)
+
+    observers = [RLGPUAlgoObserver()]
+
+    if cfg.pbt.enabled:
+        pbt_observer = PbtAlgoObserver(cfg)
+        observers.append(pbt_observer)
+
+    if cfg.wandb_activate:
+        cfg.seed += global_rank
+        if global_rank == 0:
+            # initialize wandb only once per multi-gpu run
+            wandb_observer = WandbAlgoObserver(cfg)
+            observers.append(wandb_observer)
 
     # register new AMP network builder and agent
     def build_runner(algo_observer):
@@ -139,29 +192,28 @@ def launch_rlg_hydra(cfg: DictConfig):
 
         return runner
 
-    rlg_config_dict = omegaconf_to_dict(cfg.train)
-
-    # convert CLI arguments into dictionory
+    # convert CLI arguments into dictionary
     # create runner and set the settings
-    runner = build_runner(RLGPUAlgoObserver())
+    runner = build_runner(MultiObserver(observers))
     runner.load(rlg_config_dict)
     runner.reset()
 
     # dump config dict
-    experiment_dir = os.path.join('runs', cfg.train.params.config.name)
-    os.makedirs(experiment_dir, exist_ok=True)
-    with open(os.path.join(experiment_dir, 'config.yaml'), 'w') as f:
-        f.write(OmegaConf.to_yaml(cfg))
+    if not cfg.test:
+        experiment_dir = os.path.join('runs', cfg.train.params.config.name + 
+        '_{date:%d-%H-%M-%S}'.format(date=datetime.now()))
+
+        os.makedirs(experiment_dir, exist_ok=True)
+        with open(os.path.join(experiment_dir, 'config.yaml'), 'w') as f:
+            f.write(OmegaConf.to_yaml(cfg))
 
     runner.run({
         'train': not cfg.test,
         'play': cfg.test,
-        'checkpoint' : cfg.checkpoint,
-        'sigma' : None
+        'checkpoint': cfg.checkpoint,
+        'sigma': cfg.sigma if cfg.sigma != '' else None
     })
 
-    if cfg.wandb_activate and rank == 0:
-        wandb.finish()
 
 if __name__ == "__main__":
     launch_rlg_hydra()

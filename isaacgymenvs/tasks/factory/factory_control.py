@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2022, NVIDIA Corporation
+# Copyright (c) 2021-2023, NVIDIA Corporation
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -34,7 +34,8 @@ Imported by base, environment, and task classes. Not directly executed.
 import math
 import torch
 
-from isaacgym import torch_utils
+from isaacgymenvs.utils import torch_jit_utils as torch_utils
+
 
 
 def compute_dof_pos_target(cfg_ctrl,

@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2022, NVIDIA Corporation
+# Copyright (c) 2018-2023, NVIDIA Corporation
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -25,14 +25,17 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-from typing import Dict, Any, Tuple
+import os
+import time
+from datetime import datetime
+from os.path import join
+from typing import Dict, Any, Tuple, List, Set
 
 import gym
 from gym import spaces
 
 from isaacgym import gymtorch, gymapi
-from isaacgym.torch_utils import to_torch
+from isaacgymenvs.utils.torch_jit_utils import to_torch
 from isaacgymenvs.utils.dr_utils import get_property_setter_map, get_property_getter_map, \
     get_default_setter_args, apply_random_samples, check_buckets, generate_random_samples
 
@@ -40,6 +43,10 @@ import torch
 import numpy as np
 import operator, random
 from copy import deepcopy
+from isaacgymenvs.utils.utils import nested_dict_get_attr, nested_dict_set_attr
+
+from collections import deque
+
 import sys
 
 import abc
@@ -58,7 +65,7 @@ def _create_sim_once(gym, *args, **kwargs):
 
 
 class Env(ABC):
-    def __init__(self, config: Dict[str, Any], rl_device: str, sim_device: str, graphics_device_id: int, headless: bool):
+    def __init__(self, config: Dict[str, Any], rl_device: str, sim_device: str, graphics_device_id: int, headless: bool): 
         """Initialise the env.
 
         Args:
@@ -86,26 +93,43 @@ class Env(ABC):
         # if training in a headless mode
         self.headless = headless
 
-        enable_camera_sensors = config.get("enableCameraSensors", False)
+        enable_camera_sensors = config["env"].get("enableCameraSensors", False)
         self.graphics_device_id = graphics_device_id
         if enable_camera_sensors == False and self.headless == True:
             self.graphics_device_id = -1
 
         self.num_environments = config["env"]["numEnvs"]
         self.num_agents = config["env"].get("numAgents", 1)  # used for multi-agent environments
-        self.num_observations = config["env"]["numObservations"]
-        self.num_states = config["env"].get("numStates", 0)
-        self.num_actions = config["env"]["numActions"]
 
-        self.control_freq_inv = config["env"].get("controlFrequencyInv", 1)
+        self.num_observations = config["env"].get("numObservations", 0)
+        self.num_states = config["env"].get("numStates", 0)
 
         self.obs_space = spaces.Box(np.ones(self.num_obs) * -np.Inf, np.ones(self.num_obs) * np.Inf)
         self.state_space = spaces.Box(np.ones(self.num_states) * -np.Inf, np.ones(self.num_states) * np.Inf)
+
+        self.num_actions = config["env"]["numActions"]
+        self.control_freq_inv = config["env"].get("controlFrequencyInv", 1)
 
         self.act_space = spaces.Box(np.ones(self.num_actions) * -1., np.ones(self.num_actions) * 1.)
 
         self.clip_obs = config["env"].get("clipObservations", np.Inf)
         self.clip_actions = config["env"].get("clipActions", np.Inf)
+
+        # Total number of training frames since the beginning of the experiment.
+        # We get this information from the learning algorithm rather than tracking ourselves.
+        # The learning algorithm tracks the total number of frames since the beginning of training and accounts for
+        # experiments restart/resumes. This means this number can be > 0 right after initialization if we resume the
+        # experiment.
+        self.total_train_env_frames: int = 0
+
+        # number of control steps
+        self.control_steps: int = 0
+
+        self.render_fps: int = config["env"].get("renderFPS", -1)
+        self.last_frame_time: float = 0.0
+
+        self.record_frames: bool = False
+        self.record_frames_dir = join("recorded_frames", datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
 
     @abc.abstractmethod 
     def allocate_buffers(self):
@@ -114,7 +138,6 @@ class Env(ABC):
     @abc.abstractmethod
     def step(self, actions: torch.Tensor) -> Tuple[Dict[str, torch.Tensor], torch.Tensor, torch.Tensor, Dict[str, Any]]:
         """Step the physics of the environment.
-
         Args:
             actions: actions to apply
         Returns:
@@ -161,12 +184,31 @@ class Env(ABC):
         """Get the number of observations in the environment."""
         return self.num_observations
 
+    def set_train_info(self, env_frames, *args, **kwargs):
+        """
+        Send the information in the direction algo->environment.
+        Most common use case: tell the environment how far along we are in the training process. This is useful
+        for implementing curriculums and things such as that.
+        """
+        self.total_train_env_frames = env_frames
+        # print(f'env_frames updated to {self.total_train_env_frames}')
+
+    def get_env_state(self):
+        """
+        Return serializable environment state to be saved to checkpoint.
+        Can be used for stateful training sessions, i.e. with adaptive curriculums.
+        """
+        return None
+
+    def set_env_state(self, env_state):
+        pass
+
 
 class VecTask(Env):
 
     metadata = {"render.modes": ["human", "rgb_array"], "video.frames_per_second": 24}
 
-    def __init__(self, config, rl_device, sim_device, graphics_device_id, headless, virtual_screen_capture: bool = False, force_render: bool = False):
+    def __init__(self, config, rl_device, sim_device, graphics_device_id, headless, virtual_screen_capture: bool = False, force_render: bool = False): 
         """Initialise the `VecTask`.
 
         Args:
@@ -177,6 +219,7 @@ class VecTask(Env):
             virtual_screen_capture: Set to True to allow the users get captured screen in RGB array via `env.render(mode='rgb_array')`. 
             force_render: Set to True to always force rendering in the steps (if the `control_freq_inv` is greater than 1 we suggest stting this arg to True)
         """
+        # super().__init__(config, rl_device, sim_device, graphics_device_id, headless, use_dict_obs)
         super().__init__(config, rl_device, sim_device, graphics_device_id, headless)
         self.virtual_screen_capture = virtual_screen_capture
         self.virtual_display = None
@@ -194,6 +237,8 @@ class VecTask(Env):
         else:
             msg = f"Invalid physics engine backend: {self.cfg['physics_engine']}"
             raise ValueError(msg)
+
+        self.dt: float = self.sim_params.dt
 
         # optimization flags for pytorch JIT
         torch._C._jit_set_profiling_mode(False)
@@ -238,6 +283,8 @@ class VecTask(Env):
                 self.viewer, gymapi.KEY_ESCAPE, "QUIT")
             self.gym.subscribe_viewer_keyboard_event(
                 self.viewer, gymapi.KEY_V, "toggle_viewer_sync")
+            self.gym.subscribe_viewer_keyboard_event(
+                self.viewer, gymapi.KEY_R, "record_frames")
 
             # set the camera position based on up axis
             sim_params = self.gym.get_sim_params(self.sim)
@@ -341,6 +388,8 @@ class VecTask(Env):
         # compute observations, rewards, resets, ...
         self.post_physics_step()
 
+        self.control_steps += 1
+
         # fill time out buffer: set to 1 if we reached the max episode length AND the reset buffer is 1. Timeout == 1 makes sense only if the reset buffer is 1.
         self.timeout_buf = (self.progress_buf >= self.max_episode_length - 1) & (self.reset_buf != 0)
 
@@ -418,6 +467,8 @@ class VecTask(Env):
                     sys.exit()
                 elif evt.action == "toggle_viewer_sync" and evt.value > 0:
                     self.enable_viewer_sync = not self.enable_viewer_sync
+                elif evt.action == "record_frames" and evt.value > 0:
+                    self.record_frames = not self.record_frames
 
             # fetch results
             if self.device != 'cpu':
@@ -432,8 +483,29 @@ class VecTask(Env):
                 # This synchronizes the physics simulation with the rendering rate.
                 self.gym.sync_frame_time(self.sim)
 
+                # it seems like in some cases sync_frame_time still results in higher-than-realtime framerate
+                # this code will slow down the rendering to real time
+                now = time.time()
+                delta = now - self.last_frame_time
+                if self.render_fps < 0:
+                    # render at control frequency
+                    render_dt = self.dt * self.control_freq_inv  # render every control step
+                else:
+                    render_dt = 1.0 / self.render_fps
+
+                if delta < render_dt:
+                    time.sleep(render_dt - delta)
+
+                self.last_frame_time = time.time()
+
             else:
                 self.gym.poll_viewer_events(self.viewer)
+
+            if self.record_frames:
+                if not os.path.isdir(self.record_frames_dir):
+                    os.makedirs(self.record_frames_dir, exist_ok=True)
+
+                self.gym.write_viewer_image_to_file(self.viewer, join(self.record_frames_dir, f"frame_{self.control_steps}.png"))
 
             if self.virtual_display and mode == "rgb_array":
                 img = self.virtual_display.grab()
@@ -766,4 +838,3 @@ class VecTask(Env):
                         raise Exception("Invalid extern_sample size")
 
         self.first_randomization = False
-

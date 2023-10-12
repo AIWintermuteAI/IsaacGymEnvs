@@ -12,21 +12,24 @@ training progress.
 List of Examples
 ----------------
 
-* [Ant](https://gitlab-master.nvidia.com/carbon-gym/isaacgymenvs/-/blob/dev/docs/rl_examples.md#ant-antpy)
-* [Humanoid](https://gitlab-master.nvidia.com/carbon-gym/isaacgymenvs/-/blob/dev/docs/rl_examples.md#humanoid-humanoidpy)
-* [Shadow Hand](https://gitlab-master.nvidia.com/carbon-gym/isaacgymenvs/-/blob/dev/docs/rl_examples.md#shadow-hand-object-manipulation-shadow_handpy)
-* [Allegro Hand](https://gitlab-master.nvidia.com/carbon-gym/isaacgymenvs/-/blob/dev/docs/rl_examples.md#allegro-hand-allegro_handpy)
-* [ANYmal](https://gitlab-master.nvidia.com/carbon-gym/isaacgymenvs/-/blob/dev/docs/rl_examples.md#anymal-anymalpy)
-* [ANYmal Rough Terrain](https://gitlab-master.nvidia.com/carbon-gym/isaacgymenvs/-/blob/dev/docs/rl_examples.md#anymal-rough-terrain-anymal_terrainpy)
-* [TriFinger](https://gitlab-master.nvidia.com/carbon-gym/isaacgymenvs/-/blob/dev/docs/rl_examples.md#trifinger-trifingerpy)
-* [NASA Ingenuity Helicopter](https://gitlab-master.nvidia.com/carbon-gym/isaacgymenvs/-/blob/dev/docs/rl_examples.md#nasa-ingenuity-helicopter-ingenuitypy)
-* [Cartpole](https://gitlab-master.nvidia.com/carbon-gym/isaacgymenvs/-/blob/dev/docs/rl_examples.md#cartpole-cartpolepy)
-* [Ball Balance](https://gitlab-master.nvidia.com/carbon-gym/isaacgymenvs/-/blob/dev/docs/rl_examples.md#ball-balance-ball_balancepy)
-* [Franka Cabinet](https://gitlab-master.nvidia.com/carbon-gym/isaacgymenvs/-/blob/dev/docs/rl_examples.md#franka-cabinet-franka_cabinetpy)
-* [Franka Cube Stack](https://gitlab-master.nvidia.com/carbon-gym/isaacgymenvs/-/blob/dev/docs/rl_examples.md#franka-cube-stack-franka_cube_stackpy)
-* [Quadcopter](https://gitlab-master.nvidia.com/carbon-gym/isaacgymenvs/-/blob/dev/docs/rl_examples.md#quadcopter-quadcopterpy)
-* [Adversarial Motion Priors](https://gitlab-master.nvidia.com/carbon-gym/isaacgymenvs/-/blob/dev/docs/rl_examples.md#amp-adversarial-motion-priors-humanoidamppy)
-* [Factory](https://gitlab-master.nvidia.com/carbon-gym/isaacgymenvs/-/blob/dev/docs/rl_examples.md#factory-fast-contact-for-robotic-assembly)
+* [Ant](#ant-antpy)
+* [Humanoid](#humanoid-humanoidpy)
+* [Shadow Hand](#shadow-hand-object-manipulation-shadow_handpy)
+* [Allegro Hand](#allegro-hand-allegro_handpy)
+* [ANYmal](#anymal-anymalpy)
+* [ANYmal Rough Terrain](#anymal-rough-terrain-anymal_terrainpy)
+* [TriFinger](#trifinger-trifingerpy)
+* [NASA Ingenuity Helicopter](#nasa-ingenuity-helicopter-ingenuitypy)
+* [Cartpole](#cartpole-cartpolepy)
+* [Ball Balance](#ball-balance-ball_balancepy)
+* [Franka Cabinet](#franka-cabinet-franka_cabinetpy)
+* [Franka Cube Stack](#franka-cube-stack-franka_cube_stackpy)
+* [Quadcopter](#quadcopter-quadcopterpy)
+* [Adversarial Motion Priors](#amp-adversarial-motion-priors-humanoidamppy)
+* [Factory](#factory-fast-contact-for-robotic-assembly)
+* [DeXtreme](#dextreme-transfer-of-agile-in-hand-manipulation-from-simulation-to-reality)
+* [DexPBT](#dexpbt-scaling-up-dexterous-manipulation-for-hand-arm-systems-with-population-based-training)
+* [IndustReal](#industreal-transferring-contact-rich-assembly-tasks-from-simulation-to-reality)
 
 ### Ant [ant.py](../isaacgymenvs/tasks/ant.py)
 
@@ -221,7 +224,8 @@ do not typically correspond to the best outcome.
       title={Learning to Walk in Minutes Using Massively Parallel Deep Reinforcement Learning}, 
       author={Nikita Rudin and David Hoeller and Philipp Reist and Marco Hutter},
       year={2021},
-      journal = {arXiv preprint arXiv:2109.11978}
+      journal = {arXiv preprint arXiv:2109.11978},
+}
 ```
 **Note** The IsaacGymEnvs implementation slightly differs from the implementation used in the paper above, which also
 uses a different RL library and PPO implementation. The original implementation will be made available [here](https://github.com/leggedrobotics/legged_gym). Results reported in the Isaac Gym technical paper are based on that repository, not this one.
@@ -422,3 +426,138 @@ Also note that our original formulations of SDF collisions and contact reduction
 ![Nut_picking](https://user-images.githubusercontent.com/7465068/176542463-dd2d3980-c9d1-4b90-8fd2-7e23161905e9.gif)
 ![Nut_placing](https://user-images.githubusercontent.com/7465068/176544020-ff6a56b6-7359-4580-b789-f9ba43e78459.gif)
 ![Nut_screwing](https://user-images.githubusercontent.com/7465068/176528998-8a3dd41d-1a8f-4c1c-a6cd-f6eeb91ea87a.gif)
+
+### DeXtreme: Transfer of Agile In-hand Manipulation from Simulation to Reality
+
+DeXtreme provides an example of sim-to-real transfer of dexterous manipulation with an Allegro Hand including Automatic Domain Randomization (ADR). You can read further details of the task in the [extended documentation](dextreme.md) and additional information about ADR [here](domain_randomization.md).
+
+There are two [DeXtreme](https://dextreme.org) tasks: **AllegroHandDextremeManualDR** and **AllegroHandDextremeADR**. They are both compatible with the standard way of training in Isaac Gym via `python train.py task=<AllegroHandDextremeManualDR or AllegroHandDextremeADR>`. For reproducibility, we provide the exact settings with which we trained for those environments.
+
+For `AllegroHandDextremeManualDR`, you should use the following command for training 
+
+```
+HYDRA_MANUAL_DR="train.py multi_gpu=False \
+task=AllegroHandDextremeManualDR \
+task.env.resetTime=8 task.env.successTolerance=0.4 \
+experiment='allegrohand_dextreme_manual_dr' \
+headless=True seed=-1 \
+task.env.startObjectPoseDY=-0.15 \
+task.env.actionDeltaPenaltyScale=-0.2 \
+task.env.resetTime=8 \
+task.env.controlFrequencyInv=2 \
+train.params.network.mlp.units=[512,512] \
+train.params.network.rnn.units=768 \
+train.params.network.rnn.name=lstm \
+train.params.config.central_value_config.network.mlp.units=[1024,512,256] \
+train.params.config.max_epochs=50000 \
+task.env.apply_random_quat=True"
+
+
+python ${HYDRA_MANUAL_DR}
+```
+
+**TaskConfig** [AllegroHandDextremeManualDR.yaml](../isaacgymenvs/cfg/task/AllegroHandDextremeManualDR.yaml)
+
+**TrainConfig** [AllegroHandDextremeManualDRPPO.yaml](../isaacgymenvs/cfg/train/AllegroHandDextremeManualDRPPO.yaml)
+
+For `AllegroHandDextremeADR`, you should use the following command for training 
+
+```
+HYDRA_ADR="train.py multi_gpu=False \
+task=AllegroHandDextremeADR \
+headless=True seed=-1 \
+num_envs=8192 \
+task.env.resetTime=8 \
+task.env.controlFrequencyInv=2 \
+train.params.config.max_epochs=50000"
+
+python ${HYDRA_ADR}
+```
+
+**TaskConfig** [AllegroHandDextremeADR.yaml](../isaacgymenvs/cfg/task/AllegroHandDextremeADR.yaml)
+
+**TrainConfig** [AllegroHandDextremeADRPPO.yaml](../isaacgymenvs/cfg/train/AllegroHandDextremeADRPPO.yaml)
+
+![simulation](https://user-images.githubusercontent.com/686480/228693619-ad0b2da3-2829-4f38-af00-0c7249d32b6b.gif)
+
+![real-world](https://user-images.githubusercontent.com/686480/228693728-5e00c56b-0404-4a76-98f2-9ef6e2a20498.gif)
+
+More videos are available at [dextreme.org](https://dextreme.org)
+
+```
+@inproceedings{
+	handa2023dextreme,
+	author = {Ankur Handa, Arthur Allshire, Viktor Makoviychuk, Aleksei Petrenko, Ritvik Singh, Jingzhou Liu, Denys Makoviichuk, Karl Van Wyk, Alexander Zhurkevich, Balakumar Sundaralingam, Yashraj Narang, Jean-Francois Lafleche, Dieter Fox, Gavriel State},
+	title = {DeXtreme: Transfer of Agile In-hand Manipulation from Simulation to Reality},
+	booktitle = {ICRA},
+	year = {2023}
+}
+```
+
+### DexPBT: Scaling up Dexterous Manipulation for Hand-Arm Systems with Population Based Training
+
+DexPBT provides an example of solving challenging hand+arm dextrous manipulation tasks using Population Based Training (PBT). You can read further details of the tasks in the [extended documentation](pbd.md).
+
+There are two [DexPBT](https://sites.google.com/view/dexpbt) base environments, single- and dual-arms: **AllegroKukaLSTM** and **AllegroKukaTwoArmsLSTM** and a few different taks: reorientation, regrasping and grasp-and-throw for **AllegroKukaLSTM** and reorientation and regrasping for **AllegroKukaTwoArmsLSTM**. They are both compatible with the standard way of training in Isaac Gym via `python train.py task=AllegroKukaLSTM task/env=<reorientation or regrasping or throw>` `python train.py task=AllegroKukaTwoArmsLSTM task/env=<reorientation or regrasping>`. For reproducibility, we provide the exact settings with which we trained for those environments.
+
+![Training results](https://github.com/Denys88/rl_games/assets/463063/3c073a0a-69e7-4696-b86f-64c4c1a7e288)
+
+More videos are available at [https://sites.google.com/view/dexpbt](https://sites.google.com/view/dexpbt)
+
+```
+@inproceedings{
+	petrenko2023dexpbt,
+	author = {Aleksei Petrenko, Arthur Allshire, Gavriel State, Ankur Handa, Viktor Makoviychuk},
+	title = {DexPBT: Scaling up Dexterous Manipulation for Hand-Arm Systems with Population Based Training},
+	booktitle = {RSS},
+	year = {2023}
+}
+```
+
+### IndustReal: Transferring Contact-Rich Assembly Tasks from Simulation to Reality
+
+There are 2 IndustRealSim example tasks: **IndustRealTaskPegsInsert** and **IndustRealTaskGearsInsert**. The examples train policies for peg insertion tasks and gear insertion tasks, respectively. They can be launched with command line argument `task=IndustRealTaskPegsInsert` or `task=IndustRealTaskGearsInsert`. The first time you run these examples, it may take some time for Gym to generate signed distance field representations (SDFs) for the assets. However, these SDFs will then be cached.
+
+The examples correspond very closely to the code used to train the same policies in the IndustReal paper, but due to simplifications and improvements, may produce slightly different results than the original implementations. They may take 8 to 10 hours on a modern GPU to achieve similar success rates to the results presented in the IndustReal paper. 
+
+The core configuration files for these 2 IndustRealSim example tasks are the [IndustRealTaskPegsInsert.yaml](../isaacgymenvs/cfg/task/IndustRealTaskPegsInsert.yaml) and [IndustRealTaskGearsInsert.yaml](../isaacgymenvs/cfg/task/IndustRealTaskGearsInsert.yaml) task configuration files and the [IndustRealTaskPegsInsertPPO.yaml](../isaacgymenvs/cfg/train/IndustRealTaskPegsInsertPPO.yaml) and [IndustRealTaskGearsInsertPPO.yaml](../isaacgymenvs/cfg/train/IndustRealTaskGearsInsertPPO.yaml) training configuration files. In addition to the task and training configuration files described earlier, there are also base-level configuration files and environment-level configuration files. The base-level configuration file is [IndustRealBase.yaml](../isaacgymenvs/cfg/task/IndustRealBase.yaml), and the environment-level configuration files are [IndustRealEnvPegs.yaml](../isaacgymenvs/cfg/task/IndustRealEnvPegs.yaml) and [IndustRealEnvGears.yaml](../isaacgymenvs/cfg/task/IndustRealEnvGears.yaml).
+
+We highly recommend reading the [extended documentation](industreal.md) for IndustRealSim, which includes more code details and best practices.
+
+
+<table align="center">
+    <tr>
+        <th>Initialization of Peg Insertion</th>
+        <th>Trained Peg Insertion Policy</th>
+      <th>Initialization of Gear Insertion</th>
+        <th>Trained Gear Insertion Policy</th>
+    </tr>
+    <tr>
+        <td><img src="https://github.com/bingjietang718/bingjietang718.github.io/assets/78517784/5d14452f-06ab-41cd-8545-bcf303dc4229" alt="drawing" width="200"/></th>
+        <td><img src="https://github.com/bingjietang718/bingjietang718.github.io/assets/78517784/0baeaf2d-a21d-47e9-b74a-877ad59c4112" alt="drawing" width="200"/></th>
+        <td><img src="https://github.com/bingjietang718/bingjietang718.github.io/assets/78517784/52df52f0-b122-4429-b6e2-b0b6ba9c29f6" alt="drawing" width="200"/></th>
+        <td><img src="https://github.com/bingjietang718/bingjietang718.github.io/assets/78517784/af383243-3165-4255-9606-4a1419baee27" alt="drawing" width="200"/></th>
+    </tr>
+</table>
+
+If you use any of the IndustRealSim training environments or algorithms in your work, please cite [IndustReal](https://arxiv.org/abs/2305.17110):
+```
+@inproceedings{
+  tang2023industreal,
+  author = {Bingjie Tang and Michael A Lin and Iretiayo Akinola and Ankur Handa and Gaurav S Sukhatme and Fabio Ramos and Dieter Fox and Yashraj Narang},
+  title = {IndustReal: Transferring contact-rich assembly tasks from simulation to reality},
+  booktitle = {Robotics: Science and Systems},
+  year = {2023}
+}
+```
+
+Also note that the simulation methods, original environments, and low-level control algorithms were described in [Factory](https://arxiv.org/abs/2205.03532), which you may want to refer to or cite as well:
+```
+@inproceedings{
+  narang2022factory,
+  author = {Yashraj Narang and Kier Storey and Iretiayo Akinola and Miles Macklin and Philipp Reist and Lukasz Wawrzyniak and Yunrong Guo and Adam Moravanszky and Gavriel State and Michelle Lu and Ankur Handa and Dieter Fox},
+  title = {Factory: Fast contact for robotic assembly},
+  booktitle = {Robotics: Science and Systems},
+  year = {2022}
+} 
+```

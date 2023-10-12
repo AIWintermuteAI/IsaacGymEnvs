@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2022, NVIDIA Corporation
+# Copyright (c) 2021-2023, NVIDIA Corporation
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -40,8 +40,7 @@ from isaacgymenvs.tasks.amp.humanoid_amp_base import HumanoidAMPBase, dof_to_obs
 from isaacgymenvs.tasks.amp.utils_amp import gym_util
 from isaacgymenvs.tasks.amp.utils_amp.motion_lib import MotionLib
 
-from isaacgym.torch_utils import *
-from isaacgymenvs.utils.torch_jit_utils import *
+from isaacgymenvs.utils.torch_jit_utils import quat_mul, to_torch, calc_heading_quat_inv, quat_to_tan_norm, my_quat_rotate
 
 
 NUM_AMP_OBS_PER_STEP = 13 + 52 + 28 + 12 # [root_h, root_rot, root_vel, root_ang_vel, dof_pos, dof_vel, key_body_pos]
@@ -136,7 +135,6 @@ class HumanoidAMP(HumanoidAMPBase):
     def _build_amp_obs_demo_buf(self, num_samples):
         self._amp_obs_demo_buf = torch.zeros((num_samples, self._num_amp_obs_steps, NUM_AMP_OBS_PER_STEP), device=self.device, dtype=torch.float)
         return
-        
 
     def _load_motion(self, motion_file):
         self._motion_lib = MotionLib(motion_file=motion_file, 
@@ -144,7 +142,7 @@ class HumanoidAMP(HumanoidAMPBase):
                                      key_body_ids=self._key_body_ids.cpu().numpy(), 
                                      device=self.device)
         return
-    
+
     def reset_idx(self, env_ids):
         super().reset_idx(env_ids)
         self._init_amp_obs(env_ids)
@@ -195,7 +193,7 @@ class HumanoidAMP(HumanoidAMPBase):
 
         root_pos, root_rot, dof_pos, root_vel, root_ang_vel, dof_vel, key_pos \
                = self._motion_lib.get_motion_state(motion_ids, motion_times)
-        
+
         self._set_env_state(env_ids=env_ids, 
                             root_pos=root_pos, 
                             root_rot=root_rot, 
@@ -256,7 +254,7 @@ class HumanoidAMP(HumanoidAMPBase):
                                       self._local_root_obs)
         self._hist_amp_obs_buf[env_ids] = amp_obs_demo.view(self._hist_amp_obs_buf[env_ids].shape)
         return
-    
+
     def _set_env_state(self, env_ids, root_pos, root_rot, dof_pos, root_vel, root_ang_vel, dof_vel):
         self._root_states[env_ids, 0:3] = root_pos
         self._root_states[env_ids, 3:7] = root_rot
@@ -275,11 +273,13 @@ class HumanoidAMP(HumanoidAMPBase):
 
     def _update_hist_amp_obs(self, env_ids=None):
         if (env_ids is None):
-            self._hist_amp_obs_buf[:] = self._amp_obs_buf[:, 0:(self._num_amp_obs_steps - 1)]
+            for i in reversed(range(self._amp_obs_buf.shape[1] - 1)):
+                self._amp_obs_buf[:, i + 1] = self._amp_obs_buf[:, i]
         else:
-            self._hist_amp_obs_buf[env_ids] = self._amp_obs_buf[env_ids, 0:(self._num_amp_obs_steps - 1)]
+            for i in reversed(range(self._amp_obs_buf.shape[1] - 1)):
+                self._amp_obs_buf[env_ids, i + 1] = self._amp_obs_buf[env_ids, i]
         return
-    
+
     def _compute_amp_observations(self, env_ids=None):
         key_body_pos = self._rigid_body_pos[:, self._key_body_ids, :]
         if (env_ids is None):

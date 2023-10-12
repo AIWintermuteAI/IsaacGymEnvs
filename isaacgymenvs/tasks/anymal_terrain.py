@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2022, NVIDIA Corporation
+# Copyright (c) 2018-2023, NVIDIA Corporation
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -29,13 +29,15 @@
 import numpy as np
 import os, time
 
-from isaacgym.torch_utils import *
 from isaacgym import gymtorch
 from isaacgym import gymapi
 from .base.vec_task import VecTask
 
 import torch
 from typing import Tuple, Dict
+
+from isaacgymenvs.utils.torch_jit_utils import to_torch, get_axis_params, torch_rand_float, normalize, quat_apply, quat_rotate_inverse
+from isaacgymenvs.tasks.base.vec_task import VecTask
 
 
 class AnymalTerrain(VecTask):

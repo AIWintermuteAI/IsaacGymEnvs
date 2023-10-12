@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2022, NVIDIA Corporation
+# Copyright (c) 2018-2023, NVIDIA Corporation
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -56,16 +56,15 @@ class AMPPlayerContinuous(common_player.CommonPlayer):
     
     def _build_net(self, config):
         super()._build_net(config)
-        
+
         if self._normalize_amp_input:
             self._amp_input_mean_std = RunningMeanStd(config['amp_input_shape']).to(self.device)
-            self._amp_input_mean_std.eval()  
-        
+            self._amp_input_mean_std.eval()
         return
 
     def _post_step(self, info):
         super()._post_step(info)
-        if (self.env.viewer and self._print_disc_prediction):
+        if self._print_disc_prediction:
             self._amp_debug(info)
         return
 
@@ -75,6 +74,7 @@ class AMPPlayerContinuous(common_player.CommonPlayer):
             config['amp_input_shape'] = self.env.amp_observation_space.shape
         else:
             config['amp_input_shape'] = self.env_info['amp_observation_space']
+
         return config
 
     def _amp_debug(self, info):
@@ -88,7 +88,6 @@ class AMPPlayerContinuous(common_player.CommonPlayer):
             disc_pred = disc_pred.detach().cpu().numpy()[0, 0]
             disc_reward = disc_reward.cpu().numpy()[0, 0]
             print("disc_pred: ", disc_pred, disc_reward)
-
         return
 
     def _preproc_amp_obs(self, amp_obs):

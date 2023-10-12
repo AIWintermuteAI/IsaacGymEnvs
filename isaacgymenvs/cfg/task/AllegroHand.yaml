@@ -30,6 +30,9 @@ env:
   resetDofPosRandomInterval: 0.2
   resetDofVelRandomInterval: 0.0
 
+  startObjectPoseDY: -0.19
+  startObjectPoseDZ: 0.06
+
   # Random forces applied to the object
   forceScale: 0.0
   forceProbRange: [0.001, 0.1]
@@ -53,10 +56,13 @@ env:
   maxConsecutiveSuccesses: 0
 
   asset:
-    assetFileName: "urdf/kuka_allegro_description/allegro.urdf"
+    assetFileName: "urdf/kuka_allegro_description/allegro_touch_sensor.urdf"
     assetFileNameBlock: "urdf/objects/cube_multicolor_allegro.urdf"
     assetFileNameEgg: "mjcf/open_ai_assets/hand/egg.xml"
     assetFileNamePen: "mjcf/open_ai_assets/hand/pen.xml"
+
+  # set to True if you use camera sensors in the environment
+  enableCameraSensors: False
 
 task:
   randomize: False
@@ -151,9 +157,6 @@ task:
             distribution: "uniform"
             # schedule: "linear"  # "linear" will scale the current random sample by `min(current num steps, schedule_steps) / schedule_steps`
             # schedule_steps: 30000
-
-  # set to True if you use camera sensors in the environment
-  enableCameraSensors: False
 
 sim:
   dt: 0.01667 # 1/60

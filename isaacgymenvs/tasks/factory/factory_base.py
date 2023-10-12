@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2022, NVIDIA Corporation
+# Copyright (c) 2021-2023, NVIDIA Corporation
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -42,7 +42,8 @@ import sys
 import torch
 
 from gym import logger
-from isaacgym import gymapi, gymtorch, torch_utils
+from isaacgym import gymapi, gymtorch
+from isaacgymenvs.utils import torch_jit_utils as torch_utils
 from isaacgymenvs.tasks.base.vec_task import VecTask
 import isaacgymenvs.tasks.factory.factory_control as fc
 from isaacgymenvs.tasks.factory.factory_schema_class_base import FactoryABCBase

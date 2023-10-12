@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2022, NVIDIA Corporation
+# Copyright (c) 2018-2023, NVIDIA Corporation
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -30,7 +30,8 @@
 import torch
 import numpy as np
 
-from isaacgym.torch_utils import *
+from isaacgymenvs.utils.torch_jit_utils import quat_mul, quat_conjugate, quat_from_angle_axis, \
+    to_torch, get_axis_params, torch_rand_float, tensor_clamp  
 
 @torch.jit.script
 def my_quat_rotate(q, v):

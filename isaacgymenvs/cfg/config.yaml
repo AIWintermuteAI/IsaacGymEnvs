@@ -36,7 +36,9 @@ num_subscenes: 4 # Splits the simulation into N physics scenes and runs each one
 test: False
 # used to set checkpoint path
 checkpoint: ''
-# set to True to use multi-gpu horovod training
+# set sigma when restoring network
+sigma: ''
+# set to True to use multi-gpu training
 multi_gpu: False
 
 wandb_activate: False
@@ -44,6 +46,9 @@ wandb_group: ''
 wandb_name: ${train.params.config.name}
 wandb_entity: ''
 wandb_project: 'isaacgymenvs'
+wandb_tags: []
+wandb_logcode_dir: '' 
+
 capture_video: False
 capture_video_freq: 7000
 capture_video_len: 100
@@ -56,7 +61,9 @@ headless: False
 defaults:
   - task: Ant
   - train: ${task}PPO
-  - hydra/job_logging: disabled
+  - pbt: no_pbt
+  - override hydra/job_logging: disabled
+  - _self_
 
 # set the directory where the output files get saved
 hydra:

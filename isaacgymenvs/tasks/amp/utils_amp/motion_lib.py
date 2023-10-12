@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2022, NVIDIA Corporation
+# Copyright (c) 2018-2023, NVIDIA Corporation
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -32,8 +32,8 @@ import yaml
 
 from ..poselib.poselib.skeleton.skeleton3d import SkeletonMotion
 from ..poselib.poselib.core.rotation3d import *
-from isaacgym.torch_utils import *
-from isaacgymenvs.utils.torch_jit_utils import *
+
+from isaacgymenvs.utils.torch_jit_utils import to_torch, slerp, quat_to_exp_map, quat_to_angle_axis, normalize_angle
 
 from isaacgymenvs.tasks.amp.humanoid_amp_base import DOF_BODY_IDS, DOF_OFFSETS
 
@@ -234,7 +234,7 @@ class MotionLib():
         phase = time / len
         phase = np.clip(phase, 0.0, 1.0)
 
-        frame_idx0 = (phase * (num_frames - 1)).astype(np.int)
+        frame_idx0 = (phase * (num_frames - 1)).astype(int)
         frame_idx1 = np.minimum(frame_idx0 + 1, num_frames - 1)
         blend = (time - frame_idx0 * dt) / dt
 

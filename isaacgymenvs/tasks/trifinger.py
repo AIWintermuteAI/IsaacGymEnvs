@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2022, NVIDIA Corporation
+# Copyright (c) 2018-2023, NVIDIA Corporation
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -32,8 +32,7 @@ import torch
 
 from isaacgym import gymtorch
 from isaacgym import gymapi
-from isaacgym.torch_utils import *
-
+from isaacgymenvs.utils.torch_jit_utils import quat_mul 
 from collections import OrderedDict
 
 project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
