@@ -44,47 +44,47 @@ body_ids_offsets = {
 
     # left leg
     # hip
-    2: { "offset" : 20, "size": 1, 'axis': 1},
-    #2: { "offset" : 18, "size": 1, 'axis': 2},
-    #2: { "offset" : 19, "size": 1, 'axis': 0},
+    20: { "body_id" : 2, "size": 1, 'axis': 1},
+    #18: { "body_id" : 2, "size": 1, 'axis': 2},
+    #19: { "body_id" : 2, "size": 1, 'axis': 0},
     # knee
-    8: { "offset" : 21, "size": 1, 'axis': 1},
+    21: { "body_id" : 8, "size": 1, 'axis': 1},
     # foot
-    16: { "offset" : 22, "size": 1, 'axis': 1},
-    #20: { "offset" : 23, "size": 1, 'axis': 0},
+    22: { "body_id" : 16, "size": 1, 'axis': 1},
+    #23: { "body_id" : 20, "size": 1, 'axis': 0},
 
     # right leg
     # hip
-    3: { "offset" : 26, "size": 1, 'axis': 1},
-    #3: { "offset" : 24, "size": 1, 'axis': 2},
-    #3: { "offset" : 25, "size": 1, 'axis': 0},
+    26: { "body_id" : 3, "size": 1, 'axis': 1},
+    #24: { "body_id" : 3, "size": 1, 'axis': 2},
+    #25: { "body_id" : 3, "size": 1, 'axis': 0},
     # knee
-    9: { "offset" : 27, "size": 1, 'axis': 1},
+    27: { "body_id" : 9, "size": 1, 'axis': 1},
     # foot
-    18: { "offset" : 28, "size": 1, 'axis': 1},
-    #22: { "offset" : 29, "size": 1, 'axis': 0},
+    28: { "body_id" : 18, "size": 1, 'axis': 1},
+    #29: { "body_id" : 22, "size": 1, 'axis': 0},
 
     # torso
-    1: { "offset" : 0, "size": 1, 'axis': 0},
-    1: { "offset" : 1, "size": 1, 'axis': 1},
-    1: { "offset" : 2, "size": 1, 'axis': 2},
+    #0: { "body_id" : 1, "size": 1, 'axis': 0},
+    #1: { "body_id" : 1, "size": 1, 'axis': 1},
+    2: { "body_id" : 1, "size": 1, 'axis': 2},
     # head
-    12: { "offset" : 10, "size": 0, 'axis': -1},
+    10: { "body_id" : 12, "size": 0, 'axis': -1},
 
     # left arm
-    10: { "offset" : 4, "size": 3, 'axis': 0},
-    #10: { "offset" : 4, "size": 1, 'axis': 0},
-    25: { "offset" : 5, "size": 1, 'axis': 1},
-    25: { "offset" : 6, "size": 1, 'axis': 0},
-    29: { "offset" : 7, "size": 1, 'axis': 1},
-    29: { "offset" : 8, "size": 1, 'axis': 0},
+    #3: { "body_id" : 10, "size": 1, 'axis': 2},
+    4: { "body_id" : 10, "size": 3, 'axis': 0},
+    #5: { "body_id" : 27, "size": 1, 'axis': 1},
+    6: { "body_id" : 25, "size": 1, 'axis': 0},
+    #7: { "body_id" : 29, "size": 1, 'axis': 1},
+    8: { "body_id" : 29, "size": 1, 'axis': 0},
     # right arm
-    13: { "offset" : 12, "size": 3, 'axis': 0},
-    #13: { "offset" : 12, "size": 1, 'axis': 0},
-    26: { "offset" : 13, "size": 1, 'axis': 1},
-    26: { "offset" : 14, "size": 1, 'axis': 0},
-    30: { "offset" : 15, "size": 1, 'axis': 1},
-    30: { "offset" : 16, "size": 1, 'axis': 0},
+    #11: { "body_id" : 13, "size": 1, 'axis': 2},
+    12: { "body_id" : 13, "size": 3, 'axis': 0},
+    #13: { "body_id" : 28, "size": 1, 'axis': 1},
+    14: { "body_id" : 26, "size": 1, 'axis': 0},
+    #15: { "body_id" : 30, "size": 1, 'axis': 1},
+    16: { "body_id" : 30, "size": 1, 'axis': 0},
 }
 
 class AtlasAMPBase(VecTask):
@@ -371,15 +371,14 @@ class AtlasAMPBase(VecTask):
         lim_low = self.dof_limits_lower.cpu().numpy()
         lim_high = self.dof_limits_upper.cpu().numpy()
 
-        for body_id in body_ids_offsets.keys():
-            dof_offset = body_ids_offsets[body_id]['offset']
-            dof_size = body_ids_offsets[body_id]['size']
+        for dof_offset in body_ids_offsets.keys():
+            dof_size = body_ids_offsets[dof_offset]['size']
 
             if (dof_size == 3):
                 lim_low[dof_offset:(dof_offset + dof_size)] = -np.pi
                 lim_high[dof_offset:(dof_offset + dof_size)] = np.pi
 
-            elif (dof_size == 1):
+            elif (dof_size <= 1):
                 curr_low = lim_low[dof_offset]
                 curr_high = lim_high[dof_offset]
                 curr_mid = 0.5 * (curr_high + curr_low)
@@ -607,9 +606,8 @@ def dof_to_obs(pose, body_ids_offsets):
     dof_obs = torch.zeros(dof_obs_shape, device=pose.device)
     dof_obs_offset = 0
 
-    for body_id in body_ids_offsets.keys():
-        dof_offset = body_ids_offsets[body_id]['offset']
-        dof_size = body_ids_offsets[body_id]['size']
+    for dof_offset in body_ids_offsets.keys():
+        dof_size = body_ids_offsets[dof_offset]['size']
         joint_pose = pose[:, dof_offset:(dof_offset + dof_size)]
 
         # assume this is a spherical joint
@@ -629,8 +627,9 @@ def dof_to_obs(pose, body_ids_offsets):
             dof_obs_size = 0
             assert(False)
         if dof_obs_size:
+            #print(dof_offset, dof_obs_size)
             dof_obs[:, dof_offset:(dof_offset + dof_obs_size)] = joint_dof_obs
-        #dof_obs_offset += dof_obs_size
+    #print(torch.nonzero(dof_obs[0]))
 
     return dof_obs
 

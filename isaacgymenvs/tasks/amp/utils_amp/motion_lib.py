@@ -41,7 +41,7 @@ class MotionLib():
         self._key_body_ids = key_body_ids
         self._device = device
 
-        self.body_ids = body_ids_offsets
+        self.body_ids_offsets = body_ids_offsets
 
         self._load_motions(motion_file)
 
@@ -145,7 +145,7 @@ class MotionLib():
         root_rot = slerp(root_rot0, root_rot1, blend)
 
         blend_exp = blend.unsqueeze(-1)
-        key_pos = (1.0 - blend_exp) * key_pos0 + blend_exp * key_pos1 #0.19
+        key_pos = (1.0 - blend_exp) * key_pos0 + blend_exp * key_pos1
 
         local_rot = slerp(local_rot0, local_rot1, torch.unsqueeze(blend, axis=-1))
         dof_pos = self._local_rotation_to_dof(local_rot)
@@ -267,9 +267,9 @@ class MotionLib():
         n = local_rot.shape[0]
         dof_pos = torch.zeros((n, self._num_dof), dtype=torch.float, device=self._device)
 
-        for body_id in self.body_ids.keys():
-            joint_offset = self.body_ids[body_id]['offset']
-            joint_size = self.body_ids[body_id]['size']
+        for joint_offset in self.body_ids_offsets.keys():
+            body_id = self.body_ids_offsets[joint_offset]['body_id']
+            joint_size = self.body_ids_offsets[joint_offset]['size']
 
             if (joint_size == 3):
                 joint_q = local_rot[:, body_id]
@@ -279,7 +279,7 @@ class MotionLib():
                 joint_q = local_rot[:, body_id]
                 joint_theta, joint_axis = quat_to_angle_axis(joint_q)
                 # we don't assume joint is always along y axis
-                joint_theta = joint_theta * joint_axis[..., self.body_ids[body_id]['axis']]
+                joint_theta = joint_theta * joint_axis[..., self.body_ids_offsets[joint_offset]['axis']]
 
                 joint_theta = normalize_angle(joint_theta)
                 dof_pos[:, joint_offset] = joint_theta
@@ -300,9 +300,9 @@ class MotionLib():
         local_vel = diff_axis * diff_angle.unsqueeze(-1) / dt
         local_vel = local_vel.numpy()
 
-        for body_id in self.body_ids.keys():
-            joint_offset = self.body_ids[body_id]['offset']
-            joint_size = self.body_ids[body_id]['size']
+        for joint_offset in self.body_ids_offsets.keys():
+            body_id = self.body_ids_offsets[joint_offset]['body_id']
+            joint_size = self.body_ids_offsets[joint_offset]['size']
 
             if (joint_size == 3):
                 joint_vel = local_vel[body_id]
@@ -312,7 +312,7 @@ class MotionLib():
                 assert(joint_size == 1)
                 joint_vel = local_vel[body_id]
                 # we don't assume joint is always along y axis
-                dof_vel[joint_offset] = joint_vel[self.body_ids[body_id]['axis']]
+                dof_vel[joint_offset] = joint_vel[self.body_ids_offsets[joint_offset]['axis']]
 
             elif (joint_size == 0):
                 pass

@@ -208,7 +208,8 @@ class AtlasAMP(AtlasAMPBase):
                = self._motion_lib.get_motion_state(motion_ids, motion_times)
 
         #print(root_pos[0])
-        #print(dof_vel)
+        #print(dof_pos[0])
+        #print(torch.nonzero(dof_pos[0]))
         #dof_pos = torch.zeros_like(dof_pos).to(self.device)
         #dof_vel = torch.zeros_like(dof_vel).to(self.device)
         #root_pos = torch.FloatTensor([0, 0, 0.85]).to(self.device)
