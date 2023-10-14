@@ -43,7 +43,10 @@ def main(file_path):
 
     zero_pose = SkeletonState.zero_pose(skeleton)
 
-    output_file = os.path.join("data", os.path.basename(file_path).split(".")[0] + ".npy")
+    dir = os.path.realpath(os.path.dirname(__file__))
+
+    output_file = os.path.join(dir, "data", os.path.basename(file_path).split(".")[0] + ".npy")
+
     zero_pose.to_file(output_file)
 
     # visualize zero rotation pose

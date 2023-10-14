@@ -45,7 +45,7 @@ body_ids_offsets = {
     # left leg
     # hip
     20: { "body_id" : 2, "size": 1, 'axis': 1},
-    #18: { "body_id" : 2, "size": 1, 'axis': 2},
+    18: { "body_id" : 2, "size": 1, 'axis': 2},
     #19: { "body_id" : 2, "size": 1, 'axis': 0},
     # knee
     21: { "body_id" : 8, "size": 1, 'axis': 1},
@@ -56,7 +56,7 @@ body_ids_offsets = {
     # right leg
     # hip
     26: { "body_id" : 3, "size": 1, 'axis': 1},
-    #24: { "body_id" : 3, "size": 1, 'axis': 2},
+    24: { "body_id" : 3, "size": 1, 'axis': 2},
     #25: { "body_id" : 3, "size": 1, 'axis': 0},
     # knee
     27: { "body_id" : 9, "size": 1, 'axis': 1},
