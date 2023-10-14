@@ -23,6 +23,6 @@
    "rotation": [0, 0, 0.7071068, 0.7071068],
    "scale": 0.056444,
    "root_height_offset": 0.05,
-   "trim_frame_beg": 10,
-   "trim_frame_end": 600
+   "trim_frame_beg": 75,
+   "trim_frame_end": 372
 }
