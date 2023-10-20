@@ -1,16 +1,25 @@
 # used to create the object
 name: HumanoidAMP
 
+wandb_group: ''
+wandb_name: HumanoidAMPHands
+wandb_entity: ''
+wandb_project: 'atlas'
+capture_video: True
+capture_video_freq: 2500
+capture_video_len: 100
+force_render: False
+
 physics_engine: ${..physics_engine}
 
 # if given, will override the device setting in gym.
-env: 
-  numEnvs: ${resolve_default:4096,${...num_envs}}
+env:
+  numEnvs: ${resolve_default:1024,${...num_envs}}
   envSpacing: 5
   episodeLength: 300
   cameraFollow: True # if the camera follows humanoid or not
   enableDebugVis: False
-  
+
   pdControl: True
   powerScale: 1.0
   controlFrequencyInv: 2 # 30 Hz
@@ -68,7 +77,7 @@ task:
       range: [0., .02]
       operation: "additive"
       distribution: "gaussian"
-    sim_params: 
+    sim_params:
       gravity:
         range: [0, 0.4]
         operation: "additive"
@@ -79,7 +88,7 @@ task:
       humanoid:
         color: True
         rigid_body_properties:
-          mass: 
+          mass:
             range: [0.5, 1.5]
             operation: "scaling"
             distribution: "uniform"
@@ -101,13 +110,13 @@ task:
             schedule: "linear"  # "linear" will scale the current random sample by `min(current num steps, schedule_steps) / schedule_steps`
             schedule_steps: 3000
         dof_properties:
-          damping: 
+          damping:
             range: [0.5, 1.5]
             operation: "scaling"
             distribution: "uniform"
             schedule: "linear"  # "linear" will scale the current random sample by `min(current num steps, schedule_steps) / schedule_steps`
             schedule_steps: 3000
-          stiffness: 
+          stiffness:
             range: [0.5, 1.5]
             operation: "scaling"
             distribution: "uniform"

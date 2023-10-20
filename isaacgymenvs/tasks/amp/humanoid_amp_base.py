@@ -45,21 +45,21 @@ NUM_ACTIONS = 28
 body_ids_offsets = {
     # axis: x 0 y 1 z 2
     # left leg
-    1: { "offset" : 0, "size": 3, 'axis': -1},
-    2: { "offset" : 3, "size": 3, 'axis': -1},
-    3: { "offset" : 6, "size": 3, 'axis': -1},
+    0: { "body_id" : 1, "size": 3, 'axis': -1},
+    3: { "body_id" : 2, "size": 3, 'axis': -1},
+    6: { "body_id" : 3, "size": 3, 'axis': -1},
     # right leg
-    4: { "offset" : 9, "size": 1, 'axis': 1},
-    6: { "offset" : 10, "size": 3, 'axis': -1},
-    7: { "offset" : 13, "size": 1, 'axis': 1},
+    9: { "body_id" : 4, "size": 1, 'axis': 1},
+    10: { "body_id" : 6, "size": 3, 'axis': -1},
+    13: { "body_id" : 7, "size": 1, 'axis': 1},
     # torso
-    9: { "offset" : 14, "size": 3, 'axis': -1},
-    10: { "offset" : 17, "size": 1, 'axis': 1},
-    11: { "offset" : 18, "size": 3, 'axis': -1},
+    14: { "body_id" : 9, "size": 3, 'axis': -1},
+    17: { "body_id" : 10, "size": 1, 'axis': 1},
+    18: { "body_id" : 11, "size": 3, 'axis': -1},
     # left arm
-    12: { "offset" : 21, "size": 3, 'axis': -1},
-    13: { "offset" : 24, "size": 1, 'axis': 1},
-    14: { "offset" : 25, "size": 3, 'axis': -1},
+    21: { "body_id" : 12, "size": 3, 'axis': -1},
+    24: { "body_id" : 13, "size": 1, 'axis': 1},
+    25: { "body_id" : 14, "size": 3, 'axis': -1},
 }
 
 KEY_BODY_NAMES = ["right_hand", "left_hand", "right_foot", "left_foot"]
@@ -88,7 +88,10 @@ class HumanoidAMPBase(VecTask):
         self.cfg["env"]["numObservations"] = self.get_obs_size()
         self.cfg["env"]["numActions"] = self.get_action_size()
 
-        self.task_enabled = self.cfg["task"]["enable"]
+        try:
+            self.task_enabled = self.cfg["task"]["enable"]
+        except KeyError:
+            self.task_enabled = False
 
         super().__init__(config=self.cfg, rl_device=rl_device, sim_device=sim_device, graphics_device_id=graphics_device_id, headless=headless, virtual_screen_capture=virtual_screen_capture, force_render=force_render)
 
@@ -319,15 +322,14 @@ class HumanoidAMPBase(VecTask):
         lim_low = self.dof_limits_lower.cpu().numpy()
         lim_high = self.dof_limits_upper.cpu().numpy()
 
-        for body_id in body_ids_offsets.keys():
-            dof_offset = body_ids_offsets[body_id]['offset']
-            dof_size = body_ids_offsets[body_id]['size']
+        for dof_offset in body_ids_offsets.keys():
+            dof_size = body_ids_offsets[dof_offset]['size']
 
             if (dof_size == 3):
                 lim_low[dof_offset:(dof_offset + dof_size)] = -np.pi
                 lim_high[dof_offset:(dof_offset + dof_size)] = np.pi
 
-            elif (dof_size == 1):
+            elif (dof_size <= 1):
                 curr_low = lim_low[dof_offset]
                 curr_high = lim_high[dof_offset]
                 curr_mid = 0.5 * (curr_high + curr_low)
@@ -424,7 +426,7 @@ class HumanoidAMPBase(VecTask):
             key_body_pos = self._rigid_body_pos[env_ids][:, self._key_body_ids, :]
 
         obs = compute_humanoid_observations(root_states, dof_pos, dof_vel,
-                                            key_body_pos, self._local_root_obs)
+                                            key_body_pos, self._local_root_obs, body_ids_offsets)
         return obs
 
     def _reset_actors(self, env_ids):
@@ -545,36 +547,16 @@ class HumanoidAMPBase(VecTask):
 #####################################################################
 
 @torch.jit.script
-def dof_to_obs(pose):
+def dof_to_obs(pose, body_ids_offsets):
+    # type: (Tensor, Dict[int, Dict[str, int]]) -> Tensor
     dof_obs_size = 52
-
-    body_ids_offsets = {
-        # axis: x 0 y 1 z 2
-        # left leg
-        1: { "offset" : 0, "size": 3, 'axis': -1},
-        2: { "offset" : 3, "size": 3, 'axis': -1},
-        3: { "offset" : 6, "size": 3, 'axis': -1},
-        # right leg
-        4: { "offset" : 9, "size": 1, 'axis': 1},
-        6: { "offset" : 10, "size": 3, 'axis': -1},
-        7: { "offset" : 13, "size": 1, 'axis': 1},
-        # torso
-        9: { "offset" : 14, "size": 3, 'axis': -1},
-        10: { "offset" : 17, "size": 1, 'axis': 1},
-        11: { "offset" : 18, "size": 3, 'axis': -1},
-        # left arm
-        12: { "offset" : 21, "size": 3, 'axis': -1},
-        13: { "offset" : 24, "size": 1, 'axis': 1},
-        14: { "offset" : 25, "size": 3, 'axis': -1},
-    }
 
     dof_obs_shape = pose.shape[:-1] + (dof_obs_size,)
     dof_obs = torch.zeros(dof_obs_shape, device=pose.device)
     dof_obs_offset = 0
 
-    for body_id in body_ids_offsets.keys():
-        dof_offset = body_ids_offsets[body_id]['offset']
-        dof_size = body_ids_offsets[body_id]['size']
+    for dof_offset in body_ids_offsets.keys():
+        dof_size = body_ids_offsets[dof_offset]['size']
         joint_pose = pose[:, dof_offset:(dof_offset + dof_size)]
 
         # assume this is a spherical joint
@@ -593,14 +575,16 @@ def dof_to_obs(pose):
             joint_dof_obs = joint_pose
             dof_obs_size = 0
             assert(False)
-        dof_obs[:, dof_obs_offset:(dof_obs_offset + dof_obs_size)] = joint_dof_obs
-        dof_obs_offset += dof_obs_size
+        if dof_obs_size:
+            #print(dof_offset, dof_obs_size)
+            dof_obs[:, dof_offset:(dof_offset + dof_obs_size)] = joint_dof_obs
+    #print(torch.nonzero(dof_obs[0]))
 
     return dof_obs
 
 @torch.jit.script
-def compute_humanoid_observations(root_states, dof_pos, dof_vel, key_body_pos, local_root_obs):
-    # type: (Tensor, Tensor, Tensor, Tensor, bool) -> Tensor
+def compute_humanoid_observations(root_states, dof_pos, dof_vel, key_body_pos, local_root_obs, body_ids_offsets):
+    # type: (Tensor, Tensor, Tensor, Tensor, bool, Dict[int, Dict[str, int]]) -> Tensor
     root_pos = root_states[:, 0:3]
     root_rot = root_states[:, 3:7]
     root_vel = root_states[:, 7:10]
@@ -629,7 +613,7 @@ def compute_humanoid_observations(root_states, dof_pos, dof_vel, key_body_pos, l
     local_end_pos = my_quat_rotate(flat_heading_rot, flat_end_pos)
     flat_local_key_pos = local_end_pos.view(local_key_body_pos.shape[0], local_key_body_pos.shape[1] * local_key_body_pos.shape[2])
 
-    dof_obs = dof_to_obs(dof_pos)
+    dof_obs = dof_to_obs(dof_pos, body_ids_offsets)
 
     obs = torch.cat((root_h, root_rot_obs, local_root_vel, local_root_ang_vel, dof_obs, dof_vel, flat_local_key_pos), dim=-1)
     return obs

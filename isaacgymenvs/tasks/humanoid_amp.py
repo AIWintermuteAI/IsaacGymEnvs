@@ -128,7 +128,7 @@ class HumanoidAMP(HumanoidAMPBase):
                = self._motion_lib.get_motion_state(motion_ids, motion_times)
         root_states = torch.cat([root_pos, root_rot, root_vel, root_ang_vel], dim=-1)
         amp_obs_demo = build_amp_observations(root_states, dof_pos, dof_vel, key_pos,
-                                      self._local_root_obs)
+                                      self._local_root_obs, body_ids_offsets)
         self._amp_obs_demo_buf[:] = amp_obs_demo.view(self._amp_obs_demo_buf.shape)
 
         amp_obs_demo_flat = self._amp_obs_demo_buf.view(-1, self.get_num_amp_obs())
@@ -255,7 +255,7 @@ class HumanoidAMP(HumanoidAMPBase):
                = self._motion_lib.get_motion_state(motion_ids, motion_times)
         root_states = torch.cat([root_pos, root_rot, root_vel, root_ang_vel], dim=-1)
         amp_obs_demo = build_amp_observations(root_states, dof_pos, dof_vel, key_pos,
-                                      self._local_root_obs)
+                                      self._local_root_obs, body_ids_offsets)
         self._hist_amp_obs_buf[env_ids] = amp_obs_demo.view(self._hist_amp_obs_buf[env_ids].shape)
         return
 
@@ -286,11 +286,11 @@ class HumanoidAMP(HumanoidAMPBase):
         key_body_pos = self._rigid_body_pos[:, self._key_body_ids, :]
         if (env_ids is None):
             self._curr_amp_obs_buf[:] = build_amp_observations(self._root_states, self._dof_pos, self._dof_vel, key_body_pos,
-                                                                self._local_root_obs)
+                                                                self._local_root_obs, body_ids_offsets)
         else:
             self._curr_amp_obs_buf[env_ids] = build_amp_observations(self._root_states[env_ids], self._dof_pos[env_ids],
                                                                     self._dof_vel[env_ids], key_body_pos[env_ids],
-                                                                    self._local_root_obs)
+                                                                    self._local_root_obs, body_ids_offsets)
         return
 
 
@@ -299,8 +299,8 @@ class HumanoidAMP(HumanoidAMPBase):
 #####################################################################
 
 @torch.jit.script
-def build_amp_observations(root_states, dof_pos, dof_vel, key_body_pos, local_root_obs):
-    # type: (Tensor, Tensor, Tensor, Tensor, bool) -> Tensor
+def build_amp_observations(root_states, dof_pos, dof_vel, key_body_pos, local_root_obs, body_ids_offsets):
+    # type: (Tensor, Tensor, Tensor, Tensor, bool, Dict[int, Dict[str, int]]) -> Tensor
     root_pos = root_states[:, 0:3]
     root_rot = root_states[:, 3:7]
     root_vel = root_states[:, 7:10]
@@ -329,7 +329,7 @@ def build_amp_observations(root_states, dof_pos, dof_vel, key_body_pos, local_ro
     local_end_pos = my_quat_rotate(flat_heading_rot, flat_end_pos)
     flat_local_key_pos = local_end_pos.view(local_key_body_pos.shape[0], local_key_body_pos.shape[1] * local_key_body_pos.shape[2])
 
-    dof_obs = dof_to_obs(dof_pos)
+    dof_obs = dof_to_obs(dof_pos, body_ids_offsets)
 
     obs = torch.cat((root_h, root_rot_obs, local_root_vel, local_root_ang_vel, dof_obs, dof_vel, flat_local_key_pos), dim=-1)
     return obs
