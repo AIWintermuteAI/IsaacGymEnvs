@@ -33,6 +33,7 @@ env:
 
   localRootObs: False
   contactBodies: ["r_foot", "l_foot"]
+  #contactBodies: ["r_hand", "l_hand", "r_foot", "l_foot"]
   #keyBodyNames: []
   keyBodyNames: ["r_foot", "l_foot"]
   #keyBodyNames: ["r_hand", "l_hand", "r_foot", "l_foot"]
@@ -40,8 +41,7 @@ env:
   enableEarlyTermination: True
 
   # animation files to learn from
-  #motion_file: "standing_atlas.npy"
-  #motion_file: "walking_atlas.npy"
+  #motion_file: "55_01_cmu_atlas.npy"
   #motion_file: "07_01_cmu_atlas.npy"
   #motion_file: "09_11_cmu_atlas.npy"
   motion_file: "dataset_atlas.yaml"
